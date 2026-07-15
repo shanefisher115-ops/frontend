@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
-import { fetchSignals, type FetchResult } from "../lib/database";
+import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
 
@@ -12,16 +12,26 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 
 export function Dashboard() {
   const [result, setResult] = useState<FetchResult | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const load = useCallback(() => {
+    fetchSignals().then((r) => {
+      setResult(r);
+      setLastUpdated(new Date());
+    });
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    fetchSignals().then((r) => {
-      if (active) setResult(r);
-    });
+    load();
+    // Live updates: refetch whenever the runtime writes a row (Supabase Realtime).
+    const unsubscribe = subscribeToSignals(load);
+    // Fallback poll in case realtime isn't enabled on the table.
+    const interval = setInterval(load, 15000);
     return () => {
-      active = false;
+      unsubscribe();
+      clearInterval(interval);
     };
-  }, []);
+  }, [load]);
 
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
@@ -126,7 +136,15 @@ export function Dashboard() {
         <div className="signals__head">
           <h2 className="card__title">Signals</h2>
           <span className="signals__source">
+            {databaseMode === "live" && (
+              <span className="live-pulse" aria-hidden="true" />
+            )}
             {result?.isMock ? "source: mock dataset" : "source: supabase"}
+            {lastUpdated && (
+              <span className="signals__updated">
+                · updated {timeAgo(lastUpdated)}
+              </span>
+            )}
           </span>
         </div>
         {loading ? (

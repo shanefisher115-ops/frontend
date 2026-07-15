@@ -437,6 +437,34 @@ button {
   font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--color-text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.signals__updated {
+  color: var(--color-text-faint);
+}
+
+.live-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-live);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-live) 60%, transparent);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-live) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px color-mix(in oklab, var(--color-live) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-live) 0%, transparent);
+  }
 }
 
 /* ---- Table ---- */

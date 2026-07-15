@@ -1,6 +1,7 @@
 import { supabase, databaseMode } from "./supabase";
 import { mockSignals } from "./mockData";
 import type { Signal } from "../types/signal";
+import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 
 /**
  * Data access adapter. The rest of the app calls `fetchSignals()` and never
@@ -64,4 +65,36 @@ function formatSupabaseError(error: {
     return "The `signals` table does not exist in your Supabase project yet. Run the migration SQL (see src/types/signal.ts) to create it.";
   }
   return `${error.code ? `[${error.code}] ` : ""}${error.message}`;
+}
+
+/**
+ * Subscribe to realtime changes on `public.signals` (INSERT / UPDATE / DELETE).
+ * The callback fires on any change — the dashboard refetches to stay in sync.
+ * Returns an unsubscribe function (no-op in mock mode, where there's no client).
+ *
+ * Requires Realtime to be enabled on the `signals` table in your Supabase
+ * project (Database → Replication). It is on by default for new tables.
+ */
+export function subscribeToSignals(onChange: () => void): () => void {
+  if (databaseMode === "mock" || !supabase) {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel("signals-changes")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "signals" },
+      () => onChange(),
+    )
+    .subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Non-fatal: the initial fetch + polling still keep data fresh.
+        console.warn("[signals] realtime subscription failed:", status);
+      }
+    });
+
+  return () => {
+    supabase?.removeChannel(channel);
+  };
 }
