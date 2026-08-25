@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 };
 
 export function Dashboard() {
+  const now = Date.now();
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -142,7 +143,7 @@ export function Dashboard() {
             {result?.isMock ? "source: mock dataset" : "source: supabase"}
             {lastUpdated && (
               <span className="signals__updated">
-                · updated {timeAgo(lastUpdated)}
+                · updated {timeAgo(lastUpdated, now)}
               </span>
             )}
           </span>
@@ -163,7 +164,7 @@ export function Dashboard() {
               </thead>
               <tbody>
                 {result?.signals.map((s) => (
-                  <SignalRow key={s.id} signal={s} />
+                  <SignalRow key={s.id} signal={s} now={now} />
                 ))}
               </tbody>
             </table>
@@ -209,7 +210,7 @@ function DiagRow({
   );
 }
 
-function SignalRow({ signal }: { signal: Signal }) {
+function SignalRow({ signal, now }: { signal: Signal; now: number }) {
   const recorded = new Date(signal.recorded_at);
   return (
     <tr>
@@ -232,14 +233,14 @@ function SignalRow({ signal }: { signal: Signal }) {
         </div>
       </td>
       <td className="muted" title={recorded.toLocaleString()}>
-        {timeAgo(recorded)}
+        {timeAgo(recorded, now)}
       </td>
     </tr>
   );
 }
 
-function timeAgo(date: Date): string {
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+function timeAgo(date: Date, now: number = Date.now()): string {
+  const seconds = Math.round((now - date.getTime()) / 1000);
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
