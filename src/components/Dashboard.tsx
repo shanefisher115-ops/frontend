@@ -238,7 +238,7 @@ function SignalRow({ signal }: { signal: Signal }) {
   );
 }
 
-function timeAgo(date: Date): string {
+export function timeAgo(date: Date): string {
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.round(seconds / 60);
