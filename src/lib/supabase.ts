@@ -65,7 +65,7 @@ export const envDiagnostics = {
   },
 };
 
-function maskUrl(url: string): string {
+export function maskUrl(url: string): string {
   if (!url) return "—";
   try {
     const u = new URL(url);
