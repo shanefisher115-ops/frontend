@@ -209,7 +209,18 @@ function DiagRow({
   );
 }
 
+
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric'
+});
+
 function SignalRow({ signal }: { signal: Signal }) {
+
   const recorded = new Date(signal.recorded_at);
   return (
     <tr>
@@ -231,7 +242,7 @@ function SignalRow({ signal }: { signal: Signal }) {
           <span>{signal.intensity}</span>
         </div>
       </td>
-      <td className="muted" title={recorded.toLocaleString()}>
+      <td className="muted" title={dateFormatter.format(recorded)}>
         {timeAgo(recorded)}
       </td>
     </tr>
