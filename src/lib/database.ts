@@ -15,7 +15,7 @@ import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 
 export interface FetchResult {
   signals: Signal[];
-  mode: "live" | "mock";
+
   /** Present when a live query ran but failed. Null otherwise. */
   error: string | null;
   /** True when the result came from the mock dataset. */
@@ -26,7 +26,6 @@ export async function fetchSignals(): Promise<FetchResult> {
   if (databaseMode === "mock" || !supabase) {
     return {
       signals: mockSignals,
-      mode: "mock",
       error: null,
       isMock: true,
     };
@@ -42,7 +41,6 @@ export async function fetchSignals(): Promise<FetchResult> {
     // Keep the app usable: fall back to mock data but report the live failure.
     return {
       signals: mockSignals,
-      mode: "live",
       error: formatSupabaseError(error),
       isMock: true,
     };
@@ -50,7 +48,6 @@ export async function fetchSignals(): Promise<FetchResult> {
 
   return {
     signals: (data as Signal[]) ?? [],
-    mode: "live",
     error: null,
     isMock: false,
   };
