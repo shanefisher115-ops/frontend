@@ -17,7 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const PLACEHOLDER_HINTS = ["your_", "your-", "<", "example", "replace", "insert"];
 
-function looksPlaceholder(value: string): boolean {
+export function looksPlaceholder(value: string): boolean {
   const v = value.toLowerCase();
   if (v.length < 10) return true;
   return PLACEHOLDER_HINTS.some((hint) => v.includes(hint));
