@@ -54,12 +54,10 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 /** Human-readable source URL/key status, for the connection diagnostics card. */
 export const envDiagnostics = {
   url: {
-    value: supabaseUrl,
     configured: hasSupabaseUrl,
     masked: maskUrl(supabaseUrl),
   },
   key: {
-    value: supabaseAnonKey,
     configured: hasSupabaseKey,
     masked: maskKey(supabaseAnonKey),
   },
