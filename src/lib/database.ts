@@ -56,7 +56,7 @@ export async function fetchSignals(): Promise<FetchResult> {
   };
 }
 
-function formatSupabaseError(error: {
+export function formatSupabaseError(error: {
   code?: string;
   message: string;
 }): string {
