@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { CadViewport } from "./CadViewport";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -131,6 +132,17 @@ export function Dashboard() {
           <p>{result?.error}</p>
         </div>
       )}
+
+      <section className="card cad-card">
+        <div className="connection-card__head">
+          <h2 className="card__title">3D CAD / CAM Viewport</h2>
+          <span className="mode-pill mode-pill--live">Interactive WebGL</span>
+        </div>
+        <p className="connection-card__desc">
+          Real-time 3D CAD modeling & CAM milling cutter path simulation viewport with interactive orbit controls, grid floor, coordinate axes gizmo, wireframe toggle, and animated toolpath execution.
+        </p>
+        <CadViewport />
+      </section>
 
       <section className="card">
         <div className="signals__head">

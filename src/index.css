@@ -584,6 +584,291 @@ tbody tr:hover {
   margin: 0 auto;
 }
 
+/* ---- Interactive 3D CAD Viewport Styles ---- */
+.cad-viewport-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+.cad-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-divider);
+  flex-wrap: wrap;
+}
+
+.cad-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cad-toolbar__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.cad-toolbar__select {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-interactive);
+}
+
+.cad-toolbar__select:hover,
+.cad-toolbar__select:focus {
+  border-color: var(--color-primary);
+}
+
+.cad-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-interactive);
+  white-space: nowrap;
+}
+
+.cad-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface-offset);
+}
+
+.cad-btn--active {
+  background: var(--color-primary-highlight);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.cad-btn--primary {
+  background: var(--color-primary);
+  color: #000;
+  border-color: var(--color-primary);
+  font-weight: 700;
+}
+
+.cad-btn--primary:hover {
+  background: var(--color-primary-hover);
+  color: #000;
+}
+
+.cad-btn--sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+}
+
+.cad-canvas-mount {
+  width: 100%;
+  height: 480px;
+  position: relative;
+  background: #0f1322;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.cad-canvas-mount:active {
+  cursor: grabbing;
+}
+
+.cad-canvas-mount canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Digital Readout Overlay */
+.cad-dro-overlay {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  background: rgba(12, 14, 26, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-width: 210px;
+  color: #e3e6f5;
+  font-family: var(--font-mono);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.cad-dro__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: var(--space-1);
+}
+
+.cad-dro__title {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--color-text-faint);
+  font-weight: 700;
+}
+
+.cad-dro__motion {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cad-dro__motion--rapid {
+  color: #ffcc00;
+}
+
+.cad-dro__motion--plunge {
+  color: #ff6600;
+}
+
+.cad-dro__motion--cutting {
+  color: #00f0ff;
+}
+
+.cad-dro__motion--retract {
+  color: #aa44ff;
+}
+
+.cad-dro__coords {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-2);
+}
+
+.dro-axis {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.dro-axis__name {
+  font-weight: 800;
+  width: 18px;
+}
+
+.dro-x { color: #ff4d4d; }
+.dro-y { color: #2ecc71; }
+.dro-z { color: #3498db; }
+
+.dro-axis__val {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cad-dro__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: var(--space-1);
+}
+
+/* Axis Indicator Gizmo Overlay */
+.cad-axis-gizmo {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  gap: 6px;
+  background: rgba(12, 14, 26, 0.7);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.axis-item {
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.axis-x { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; }
+.axis-y { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.axis-z { background: rgba(52, 152, 219, 0.2); color: #3498db; }
+
+/* CAD Control Panel Bottom */
+.cad-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2);
+  border-top: 1px solid var(--color-divider);
+  flex-wrap: wrap;
+}
+
+.cad-controls__playback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cad-controls__scrub {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 200px;
+}
+
+.cad-scrubber {
+  flex: 1;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  height: 6px;
+}
+
+.cad-scrub-val {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  min-width: 45px;
+  text-align: right;
+}
+
+.cad-controls__speed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 560px) {
   .console__header {
@@ -598,5 +883,12 @@ tbody tr:hover {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
+  }
+  .cad-canvas-mount {
+    height: 340px;
+  }
+  .cad-controls {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
