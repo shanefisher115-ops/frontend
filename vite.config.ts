@@ -15,4 +15,9 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: true,
   },
+  // @ts-expect-error vitest config field
+  test: {
+    environment: "jsdom",
+    globals: true,
+  },
 });
