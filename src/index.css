@@ -104,6 +104,37 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
+/* ---- Accessibility Helpers ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  background: var(--color-primary);
+  color: #0c0e1a;
+  padding: 0.5rem 1rem;
+  z-index: 10000;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: top var(--transition-interactive);
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
 /* ---- Base ---- */
 *,
 *::before,
@@ -189,6 +220,12 @@ button {
   gap: var(--space-6);
 }
 
+.console__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
 .console__header {
   display: flex;
   align-items: center;
@@ -234,7 +271,8 @@ button {
   gap: var(--space-3);
 }
 
-.theme-toggle {
+.theme-toggle,
+.action-btn {
   display: grid;
   place-items: center;
   width: 38px;
@@ -248,7 +286,8 @@ button {
     border-color var(--transition-interactive);
 }
 
-.theme-toggle:hover {
+.theme-toggle:hover,
+.action-btn:hover {
   color: var(--color-text);
   border-color: var(--color-primary);
 }
@@ -569,6 +608,118 @@ tbody tr:hover {
     var(--color-primary),
     var(--color-live)
   );
+}
+
+/* ---- Keyboard shortcut badges & Modal ---- */
+.kbd {
+  display: inline-block;
+  padding: 0.15em 0.45em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text);
+  background-color: var(--color-surface-offset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  padding: var(--space-4);
+  animation: fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.modal__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.modal__desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.modal__close-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition:
+    color var(--transition-interactive),
+    background var(--transition-interactive);
+}
+
+.modal__close-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-offset);
+}
+
+.shortcuts-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-divider);
+}
+
+.shortcut-item__label {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.console__shortcuts-hint {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ---- Footer ---- */
