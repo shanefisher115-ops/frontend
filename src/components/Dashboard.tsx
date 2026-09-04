@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { PixelStreamingPlayer } from "./PixelStreaming/PixelStreamingPlayer";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -131,6 +132,17 @@ export function Dashboard() {
           <p>{result?.error}</p>
         </div>
       )}
+
+      <section className="card pixel-streaming-card">
+        <div className="connection-card__head">
+          <h2 className="card__title">Unreal Engine 5 Pixel Streaming</h2>
+          <span className="mode-pill mode-pill--live">WebRTC Client</span>
+        </div>
+        <p className="connection-card__desc">
+          Low-latency real-time WebRTC video playback with bidirectional mouse and keyboard event forwarding to Unreal Engine 5 Pixel Streaming servers.
+        </p>
+        <PixelStreamingPlayer serverUrl="ws://localhost:8888" autoConnect={false} />
+      </section>
 
       <section className="card">
         <div className="signals__head">
