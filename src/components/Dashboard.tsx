@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { CommandPalette } from "./CommandPalette";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
+import type { Command } from "../lib/fuzzySearch";
 
 const STATUS_LABEL: Record<SignalStatus, string> = {
   active: "Active",
@@ -10,9 +12,31 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
   offline: "Offline",
 };
 
+interface Toast {
+  id: string;
+  type: "info" | "success" | "warning";
+  title: string;
+  message: string;
+}
+
 export function Dashboard() {
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const connectionRef = useRef<HTMLDivElement>(null);
+  const signalsRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+
+  const addToast = useCallback((title: string, message: string, type: "info" | "success" | "warning" = "info") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev.slice(-3), { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  }, []);
 
   const load = useCallback(() => {
     fetchSignals().then((r) => {
@@ -20,6 +44,18 @@ export function Dashboard() {
       setLastUpdated(new Date());
     });
   }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     load();
@@ -32,6 +68,163 @@ export function Dashboard() {
       clearInterval(interval);
     };
   }, [load]);
+
+  // Global Cmd+K / Ctrl+K shortcut to toggle palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Palette commands definitions
+  const commands: Command[] = [
+    // --- Navigation ---
+    {
+      id: "nav-signals",
+      title: "Jump to Signals",
+      description: "Scroll to the real-time signals table section",
+      category: "Navigation",
+      icon: "📊",
+      perform: () => {
+        signalsRef.current?.scrollIntoView({ behavior: "smooth" });
+      },
+    },
+    {
+      id: "nav-connection",
+      title: "Jump to Connection Settings",
+      description: "Scroll to Supabase environment & credentials status",
+      category: "Navigation",
+      icon: "🔌",
+      perform: () => {
+        connectionRef.current?.scrollIntoView({ behavior: "smooth" });
+      },
+    },
+    {
+      id: "nav-top",
+      title: "Jump to Top",
+      description: "Scroll to header navigation",
+      category: "Navigation",
+      icon: "⬆️",
+      perform: () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      },
+    },
+    {
+      id: "nav-footer",
+      title: "Jump to Footer",
+      description: "Scroll to database migration instructions and footer",
+      category: "Navigation",
+      icon: "⬇️",
+      perform: () => {
+        footerRef.current?.scrollIntoView({ behavior: "smooth" });
+      },
+    },
+
+    // --- Quick Actions ---
+    {
+      id: "action-refresh",
+      title: "Refresh Signals Data",
+      description: "Fetch the latest signal readings from Supabase or mock store",
+      category: "Quick Actions",
+      shortcut: "⌘R / Ctrl+R",
+      icon: "🔄",
+      perform: () => {
+        load();
+        addToast("Refreshed", "Signal telemetry data reloaded successfully.", "success");
+      },
+    },
+    {
+      id: "action-theme",
+      title: `Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`,
+      description: `Toggle application theme (currently ${theme} mode)`,
+      category: "Quick Actions",
+      icon: theme === "dark" ? "☀️" : "🌙",
+      perform: () => {
+        toggleTheme();
+        addToast("Theme Switched", `Active theme set to ${theme === "dark" ? "light" : "dark"} mode.`, "info");
+      },
+    },
+    {
+      id: "action-copy-diag",
+      title: "Copy Environment Diagnostics",
+      description: "Copy masked Supabase URL & Key configuration summary to clipboard",
+      category: "Quick Actions",
+      icon: "📋",
+      perform: () => {
+        const summary = `Supabase URL: ${envDiagnostics.url.masked} (${envDiagnostics.url.configured ? "configured" : "missing"})\nSupabase Key: ${envDiagnostics.key.masked} (${envDiagnostics.key.configured ? "configured" : "missing"})\nMode: ${databaseMode}`;
+        navigator.clipboard?.writeText(summary);
+        addToast("Copied to Clipboard", "Environment diagnostics copied.", "success");
+      },
+    },
+
+    // --- Agent Commands ---
+    {
+      id: "agent-diagnostics",
+      title: "Agent: Run Signal Diagnostics",
+      description: "Analyze signal integrity, active ratios, and telemetry intensity averages",
+      category: "Agent Commands",
+      icon: "🤖",
+      perform: () => {
+        const total = result?.signals.length || 0;
+        const activeCount = result?.signals.filter((s) => s.status === "active").length || 0;
+        const avgIntensity = total > 0
+          ? Math.round(result!.signals.reduce((acc, s) => acc + s.intensity, 0) / total)
+          : 0;
+
+        addToast(
+          "Agent Diagnostics Complete",
+          `Analyzed ${total} signals. ${activeCount}/${total} active (${Math.round((activeCount / total) * 100 || 0)}%). Avg intensity: ${avgIntensity}%.`,
+          "info"
+        );
+      },
+    },
+    {
+      id: "agent-health",
+      title: "Agent: Analyze Database Health",
+      description: "Verify backend database routing, fallback status, and API key presence",
+      category: "Agent Commands",
+      icon: "🏥",
+      perform: () => {
+        const statusMsg = databaseMode === "live"
+          ? "Supabase connected and live. RLS policies active."
+          : "Operating in Mock Fallback mode. Add VITE_SUPABASE_URL & ANON_KEY to .env to go live.";
+        addToast("Database Health Report", statusMsg, databaseMode === "live" ? "success" : "warning");
+      },
+    },
+    {
+      id: "agent-sync-schema",
+      title: "Agent: Verify RLS & Schema SQL",
+      description: "Inspect Row Level Security policies and required SQL migration schema",
+      category: "Agent Commands",
+      icon: "🛡️",
+      perform: () => {
+        addToast(
+          "Schema & RLS Check",
+          "Public read policy required for 'signals' table with gen_random_uuid() primary keys.",
+          "info"
+        );
+      },
+    },
+    {
+      id: "agent-purge-cache",
+      title: "Agent: Clear Local Telemetry Cache",
+      description: "Purge local memory store and force fresh websocket subscription",
+      category: "Agent Commands",
+      icon: "🧹",
+      perform: () => {
+        setResult(null);
+        setTimeout(() => {
+          load();
+          addToast("Cache Purged", "Local cache cleared and telemetry resynced.", "success");
+        }, 300);
+      },
+    },
+  ];
 
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
@@ -75,29 +268,66 @@ export function Dashboard() {
           </div>
         </div>
         <div className="console__header-right">
+          <button
+            type="button"
+            className="cmd-trigger-btn"
+            onClick={() => setIsPaletteOpen(true)}
+            aria-label="Open Command Palette (Cmd+K)"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span className="cmd-trigger-btn__text">Search or command…</span>
+            <kbd className="cmd-trigger-btn__kbd">⌘K</kbd>
+          </button>
           <DatabaseStatusBadge />
           <button
             type="button"
             className="theme-toggle"
             data-theme-toggle
-            aria-label="Switch to light mode"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
+            {theme === "dark" ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
           </button>
         </div>
       </header>
 
-      <section className="card connection-card">
+      <section ref={connectionRef} className="card connection-card" id="connection-section">
         <div className="connection-card__head">
           <h2 className="card__title">Connection</h2>
           <span className={`mode-pill mode-pill--${databaseMode}`}>
@@ -132,7 +362,7 @@ export function Dashboard() {
         </div>
       )}
 
-      <section className="card">
+      <section ref={signalsRef} className="card" id="signals-section">
         <div className="signals__head">
           <h2 className="card__title">Signals</h2>
           <span className="signals__source">
@@ -171,7 +401,7 @@ export function Dashboard() {
         )}
       </section>
 
-      <footer className="console__footer">
+      <footer ref={footerRef} className="console__footer">
         <p>
           To go live: create a Supabase project, copy your Project URL + anon
           key into <code>.env</code>, run the <code>signals</code> migration
@@ -179,6 +409,23 @@ export function Dashboard() {
           or rebuild/redeploy.
         </p>
       </footer>
+
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        onClose={() => setIsPaletteOpen(false)}
+        commands={commands}
+      />
+
+      {toasts.length > 0 && (
+        <div className="toast-container" aria-live="polite">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={`toast toast--${toast.type}`}>
+              <div className="toast__title">{toast.title}</div>
+              <div className="toast__message">{toast.message}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
