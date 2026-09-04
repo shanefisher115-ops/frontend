@@ -11,14 +11,17 @@ import { databaseMode } from "../lib/supabase";
  */
 export function DatabaseStatusBadge() {
   const isLive = databaseMode === "live";
+  const labelText = isLive ? "Supabase Live" : "Using Mock Fallback";
   return (
-    <span
+    <div
       className={`status-badge ${isLive ? "status-badge--live" : "status-badge--mock"}`}
       role="status"
+      aria-live="polite"
       data-testid="status-database-mode"
-      aria-label={isLive ? "Supabase Live" : "Using Mock Fallback"}
+      aria-label={`Database mode: ${labelText}`}
     >
-      {isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}
-    </span>
+      <span className="status-badge__dot" aria-hidden="true" />
+      <span>{labelText}</span>
+    </div>
   );
 }
