@@ -1,8 +1,12 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    environment: "jsdom",
+    globals: true,
+  },
   // Relative base so the built bundle resolves its assets correctly when
   // served from a sub-path (S3 preview, /computer/a proxy, subdirectories).
   base: "./",
