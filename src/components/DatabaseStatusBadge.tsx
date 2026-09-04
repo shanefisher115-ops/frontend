@@ -17,8 +17,10 @@ export function DatabaseStatusBadge() {
       role="status"
       data-testid="status-database-mode"
       aria-label={isLive ? "Supabase Live" : "Using Mock Fallback"}
+      aria-live="polite"
     >
-      {isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}
+      <span className="status-badge__dot" aria-hidden="true" />
+      <span>{isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}</span>
     </span>
   );
 }
