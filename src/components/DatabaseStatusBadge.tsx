@@ -2,12 +2,7 @@ import { databaseMode } from "../lib/supabase";
 
 /**
  * Status badge that reflects the live/mock state of the Supabase client.
- * Reads the precomputed `databaseMode` from the client module, so it updates
- * automatically when `.env` credentials change (after a dev-server restart or
- * rebuild — Vite bakes env vars in at startup, they are not hot-reloaded).
- *
- * 🔴 Using Mock Fallback  — credentials missing/placeholder
- * 🟢 Supabase Live       — both env vars configured
+ * Reads the precomputed `databaseMode` from the client module.
  */
 export function DatabaseStatusBadge() {
   const isLive = databaseMode === "live";
@@ -15,9 +10,11 @@ export function DatabaseStatusBadge() {
     <span
       className={`status-badge ${isLive ? "status-badge--live" : "status-badge--mock"}`}
       role="status"
+      aria-live="polite"
       data-testid="status-database-mode"
-      aria-label={isLive ? "Supabase Live" : "Using Mock Fallback"}
+      aria-label={`Database status: ${isLive ? "Supabase Live" : "Using Mock Fallback"}`}
     >
+      <span className="status-badge__dot" aria-hidden="true" />
       {isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}
     </span>
   );

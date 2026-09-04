@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
@@ -13,19 +13,66 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 export function Dashboard() {
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") {
+      const current = document.documentElement.getAttribute("data-theme");
+      if (current === "dark" || current === "light") return current;
+      return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    }
+    return "dark";
+  });
+
+  const shortcutsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Synchronize theme attribute on html root
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      setAnnouncement(`Switched to ${next} mode`);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(() => {
-    fetchSignals().then((r) => {
+    setIsRefreshing(true);
+    return fetchSignals().then((r) => {
       setResult(r);
       setLastUpdated(new Date());
+      setIsRefreshing(false);
+    });
+  }, []);
+
+  const handleManualRefresh = useCallback(() => {
+    load().then(() => {
+      setAnnouncement("Signals dataset refreshed");
+    });
+  }, [load]);
+
+  const toggleShortcutsHelp = useCallback(() => {
+    setShowShortcutsHelp((prev) => {
+      const next = !prev;
+      setAnnouncement(
+        next
+          ? "Keyboard shortcuts dialog opened"
+          : "Keyboard shortcuts dialog closed"
+      );
+      return next;
     });
   }, []);
 
   useEffect(() => {
     load();
-    // Live updates: refetch whenever the runtime writes a row (Supabase Realtime).
     const unsubscribe = subscribeToSignals(load);
-    // Fallback poll in case realtime isn't enabled on the table.
     const interval = setInterval(load, 15000);
     return () => {
       unsubscribe();
@@ -33,12 +80,70 @@ export function Dashboard() {
     };
   }, [load]);
 
+  // Focus management for shortcuts modal
+  useEffect(() => {
+    if (showShortcutsHelp) {
+      modalCloseButtonRef.current?.focus();
+    } else {
+      shortcutsButtonRef.current?.focus();
+    }
+  }, [showShortcutsHelp]);
+
+  // Global Keyboard Shortcuts Listener
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === "r" || event.key === "R") {
+        event.preventDefault();
+        handleManualRefresh();
+      } else if (event.key === "t" || event.key === "T") {
+        event.preventDefault();
+        toggleTheme();
+      } else if (event.key === "?") {
+        event.preventDefault();
+        toggleShortcutsHelp();
+      } else if (event.key === "Escape") {
+        if (showShortcutsHelp) {
+          event.preventDefault();
+          setShowShortcutsHelp(false);
+          setAnnouncement("Keyboard shortcuts dialog closed");
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleManualRefresh, toggleTheme, toggleShortcutsHelp, showShortcutsHelp]);
+
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
 
   return (
     <div className="console">
-      <header className="console__header">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      {/* Screen reader live region for announcements */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+
+      <header className="console__header" role="banner">
         <div className="console__brand">
           <span className="console__logo" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -77,10 +182,14 @@ export function Dashboard() {
         <div className="console__header-right">
           <DatabaseStatusBadge />
           <button
+            ref={shortcutsButtonRef}
             type="button"
-            className="theme-toggle"
-            data-theme-toggle
-            aria-label="Switch to light mode"
+            className="icon-btn"
+            onClick={toggleShortcutsHelp}
+            aria-label="Keyboard shortcuts help (Shortcut: ?)"
+            title="Keyboard shortcuts (?)"
+            aria-expanded={showShortcutsHelp}
+            aria-haspopup="dialog"
           >
             <svg
               width="18"
@@ -89,89 +198,160 @@ export function Dashboard() {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
+              aria-hidden="true"
             >
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
+            <kbd className="shortcut-hint" aria-hidden="true">?</kbd>
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            data-theme-toggle
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode (Shortcut: T)`}
+            aria-pressed={theme === "dark"}
+            title="Toggle dark/light theme (T)"
+          >
+            {theme === "dark" ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+            <kbd className="shortcut-hint" aria-hidden="true">T</kbd>
           </button>
         </div>
       </header>
 
-      <section className="card connection-card">
-        <div className="connection-card__head">
-          <h2 className="card__title">Connection</h2>
-          <span className={`mode-pill mode-pill--${databaseMode}`}>
-            {databaseMode === "live" ? "Live mode" : "Mock mode"}
-          </span>
-        </div>
-        <p className="connection-card__desc">
-          The client auto-detects credentials from{" "}
-          <code>frontend/primordialorigin.com/.env</code>. Add{" "}
-          <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
-          then restart the dev server (or rebuild/redeploy) — the badge flips
-          to 🟢 Supabase Live automatically. No code changes required.
-        </p>
-        <dl className="diag-grid">
-          <DiagRow
-            label="VITE_SUPABASE_URL"
-            configured={envDiagnostics.url.configured}
-            value={envDiagnostics.url.masked}
-          />
-          <DiagRow
-            label="VITE_SUPABASE_ANON_KEY"
-            configured={envDiagnostics.key.configured}
-            value={envDiagnostics.key.masked}
-          />
-        </dl>
-      </section>
+      <main id="main-content" className="console__main" tabIndex={-1}>
+        <section className="card connection-card" aria-labelledby="connection-title">
+          <div className="connection-card__head">
+            <h2 id="connection-title" className="card__title">Connection</h2>
+            <span className={`mode-pill mode-pill--${databaseMode}`}>
+              {databaseMode === "live" ? "Live mode" : "Mock mode"}
+            </span>
+          </div>
+          <p className="connection-card__desc">
+            The client auto-detects credentials from{" "}
+            <code>frontend/primordialorigin.com/.env</code>. Add{" "}
+            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
+            then restart the dev server (or rebuild/redeploy) — the badge flips
+            to 🟢 Supabase Live automatically. No code changes required.
+          </p>
+          <dl className="diag-grid" aria-label="Environment variable diagnostics">
+            <DiagRow
+              label="VITE_SUPABASE_URL"
+              configured={envDiagnostics.url.configured}
+              value={envDiagnostics.url.masked}
+            />
+            <DiagRow
+              label="VITE_SUPABASE_ANON_KEY"
+              configured={envDiagnostics.key.configured}
+              value={envDiagnostics.key.masked}
+            />
+          </dl>
+        </section>
 
-      {showError && (
-        <div className="card alert-card" role="alert">
-          <strong>Live query failed — serving mock data.</strong>
-          <p>{result?.error}</p>
-        </div>
-      )}
-
-      <section className="card">
-        <div className="signals__head">
-          <h2 className="card__title">Signals</h2>
-          <span className="signals__source">
-            {databaseMode === "live" && (
-              <span className="live-pulse" aria-hidden="true" />
-            )}
-            {result?.isMock ? "source: mock dataset" : "source: supabase"}
-            {lastUpdated && (
-              <span className="signals__updated">
-                · updated {timeAgo(lastUpdated)}
-              </span>
-            )}
-          </span>
-        </div>
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Origin</th>
-                  <th>Status</th>
-                  <th className="num">Intensity</th>
-                  <th>Recorded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result?.signals.map((s) => (
-                  <SignalRow key={s.id} signal={s} />
-                ))}
-              </tbody>
-            </table>
+        {showError && (
+          <div className="card alert-card" role="alert" aria-live="assertive">
+            <strong>Live query failed — serving mock data.</strong>
+            <p>{result?.error}</p>
           </div>
         )}
-      </section>
 
-      <footer className="console__footer">
+        <section className="card" aria-labelledby="signals-title">
+          <div className="signals__head">
+            <div className="signals__title-group">
+              <h2 id="signals-title" className="card__title">Signals</h2>
+              <button
+                type="button"
+                className="refresh-btn"
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                aria-label="Refresh signals dataset (Shortcut: R)"
+                title="Refresh signals (R)"
+              >
+                <svg
+                  className={`refresh-icon ${isRefreshing ? "spin" : ""}`}
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M23 4v6h-6M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span>Refresh</span>
+                <kbd className="shortcut-hint" aria-hidden="true">R</kbd>
+              </button>
+            </div>
+            <span className="signals__source">
+              {databaseMode === "live" && (
+                <span className="live-pulse" aria-hidden="true" />
+              )}
+              {result?.isMock ? "source: mock dataset" : "source: supabase"}
+              {lastUpdated && (
+                <span className="signals__updated">
+                  · updated {timeAgo(lastUpdated)}
+                </span>
+              )}
+            </span>
+          </div>
+          {loading ? (
+            <p className="muted" role="status" aria-live="polite">Loading…</p>
+          ) : (
+            <div className="table-wrap">
+              <table aria-labelledby="signals-title">
+                <caption className="sr-only">
+                  List of system signals, their origin, current status, intensity level, and recorded timestamp.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Origin</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="num">Intensity</th>
+                    <th scope="col">Recorded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result?.signals.map((s) => (
+                    <SignalRow key={s.id} signal={s} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+
+      <footer className="console__footer" role="contentinfo">
         <p>
           To go live: create a Supabase project, copy your Project URL + anon
           key into <code>.env</code>, run the <code>signals</code> migration
@@ -179,6 +359,63 @@ export function Dashboard() {
           or rebuild/redeploy.
         </p>
       </footer>
+
+      {showShortcutsHelp && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setShowShortcutsHelp(false);
+            setAnnouncement("Keyboard shortcuts dialog closed");
+          }}
+          role="presentation"
+        >
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shortcuts-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="shortcuts-dialog-title" className="card__title">
+                Keyboard Shortcuts
+              </h2>
+              <button
+                ref={modalCloseButtonRef}
+                type="button"
+                className="modal-close-btn"
+                onClick={() => {
+                  setShowShortcutsHelp(false);
+                  setAnnouncement("Keyboard shortcuts dialog closed");
+                }}
+                aria-label="Close keyboard shortcuts dialog"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <dl className="shortcuts-list">
+                <div className="shortcut-row">
+                  <dt><kbd>R</kbd></dt>
+                  <dd>Refresh signals dataset</dd>
+                </div>
+                <div className="shortcut-row">
+                  <dt><kbd>T</kbd></dt>
+                  <dd>Toggle dark / light theme</dd>
+                </div>
+                <div className="shortcut-row">
+                  <dt><kbd>?</kbd></dt>
+                  <dd>Toggle this shortcuts help dialog</dd>
+                </div>
+                <div className="shortcut-row">
+                  <dt><kbd>Esc</kbd></dt>
+                  <dd>Close dialog</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -213,26 +450,42 @@ function SignalRow({ signal }: { signal: Signal }) {
   const recorded = new Date(signal.recorded_at);
   return (
     <tr>
-      <td className="signal-name">{signal.name}</td>
+      <th scope="row" className="signal-name">
+        {signal.name}
+      </th>
       <td className="muted">{signal.origin}</td>
       <td>
-        <span className={`status-chip status-chip--${signal.status}`}>
+        <span
+          className={`status-chip status-chip--${signal.status}`}
+          aria-label={`Status: ${STATUS_LABEL[signal.status]}`}
+        >
           {STATUS_LABEL[signal.status]}
         </span>
       </td>
       <td className="num">
-        <div className="intensity">
-          <div className="intensity__bar">
+        <div
+          className="intensity"
+          role="progressbar"
+          aria-label={`Signal intensity for ${signal.name}`}
+          aria-valuenow={signal.intensity}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div className="intensity__bar" aria-hidden="true">
             <div
               className="intensity__fill"
-              style={{ width: `${Math.max(0, Math.min(100, signal.intensity))}%` }}
+              style={{
+                width: `${Math.max(0, Math.min(100, signal.intensity))}%`,
+              }}
             />
           </div>
           <span>{signal.intensity}</span>
         </div>
       </td>
-      <td className="muted" title={recorded.toLocaleString()}>
-        {timeAgo(recorded)}
+      <td className="muted">
+        <time dateTime={recorded.toISOString()} title={recorded.toLocaleString()}>
+          {timeAgo(recorded)}
+        </time>
       </td>
     </tr>
   );
