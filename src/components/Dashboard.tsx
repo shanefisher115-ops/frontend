@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { CADConsole } from "./CADConsole";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
+import "../cad.css";
 
 const STATUS_LABEL: Record<SignalStatus, string> = {
   active: "Active",
@@ -68,9 +70,9 @@ export function Dashboard() {
             </svg>
           </span>
           <div>
-            <h1 className="console__title">Primordia · Database Console</h1>
+            <h1 className="console__title">Primordia · Database Console & 3D CAD</h1>
             <p className="console__subtitle">
-              primordialorigin.com · Supabase client with mock fallback
+              primordialorigin.com · Supabase client & 3D CAD/CAM Viewport
             </p>
           </div>
         </div>
@@ -96,6 +98,9 @@ export function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* Interactive 3D CAD Viewport Section */}
+      <CADConsole />
 
       <section className="card connection-card">
         <div className="connection-card__head">
