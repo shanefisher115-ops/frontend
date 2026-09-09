@@ -104,6 +104,37 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
+/* ---- Accessibility Utilities ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  background: var(--color-primary);
+  color: #ffffff;
+  padding: var(--space-2) var(--space-4);
+  z-index: 9999;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 150ms ease-in-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
 /* ---- Base ---- */
 *,
 *::before,
@@ -232,6 +263,25 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.btn-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  transition:
+    color var(--transition-interactive),
+    border-color var(--transition-interactive);
+}
+
+.btn-icon:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
 }
 
 .theme-toggle {
@@ -433,6 +483,53 @@ button {
 }
 
 /* ---- Signals source label ---- */
+.signals__title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  transition:
+    color var(--transition-interactive),
+    border-color var(--transition-interactive),
+    background-color var(--transition-interactive);
+}
+
+.btn-refresh:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .signals__source {
   font-size: var(--text-xs);
   font-family: var(--font-mono);
@@ -569,6 +666,66 @@ tbody tr:hover {
     var(--color-primary),
     var(--color-live)
   );
+}
+
+/* ---- Modal / Dialog ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.modal-header h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.shortcuts-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shortcuts-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--color-surface-offset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.2em 0.5em;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
 /* ---- Footer ---- */
