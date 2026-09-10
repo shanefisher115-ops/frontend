@@ -16,14 +16,14 @@ describe("formatSupabaseError", () => {
     );
   });
 
-  it("should prepend error code if present", () => {
+  it("should return a generic message for unhandled errors with error code", () => {
     const error = { code: "23505", message: "duplicate key value violates unique constraint" };
-    expect(formatSupabaseError(error)).toBe("[23505] duplicate key value violates unique constraint");
+    expect(formatSupabaseError(error)).toBe("An unexpected error occurred while communicating with the database.");
   });
 
-  it("should return just the message if no code is present", () => {
+  it("should return a generic message for unhandled errors with no code present", () => {
     const error = { message: "Network error" };
-    expect(formatSupabaseError(error)).toBe("Network error");
+    expect(formatSupabaseError(error)).toBe("An unexpected error occurred while communicating with the database.");
   });
 
   it("should return friendly message for regex ignoring case", () => {
