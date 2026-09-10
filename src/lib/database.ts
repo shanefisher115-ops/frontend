@@ -80,12 +80,18 @@ export function subscribeToSignals(onChange: () => void): () => void {
     return () => {};
   }
 
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const debouncedOnChange = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => onChange(), 100);
+  };
+
   const channel = supabase
     .channel("signals-changes")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "signals" },
-      () => onChange(),
+      debouncedOnChange,
     )
     .subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -95,6 +101,7 @@ export function subscribeToSignals(onChange: () => void): () => void {
     });
 
   return () => {
+    clearTimeout(timeoutId);
     supabase?.removeChannel(channel);
   };
 }
