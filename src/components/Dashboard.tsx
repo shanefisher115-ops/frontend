@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
@@ -411,7 +411,7 @@ function DiagRow({
   );
 }
 
-function SignalRow({ signal }: { signal: Signal }) {
+const SignalRow = memo(function SignalRow({ signal }: { signal: Signal }) {
   const recorded = new Date(signal.recorded_at);
   const boundedIntensity = Math.max(0, Math.min(100, signal.intensity));
 
@@ -454,7 +454,7 @@ function SignalRow({ signal }: { signal: Signal }) {
       </td>
     </tr>
   );
-}
+});
 
 function timeAgo(date: Date): string {
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
