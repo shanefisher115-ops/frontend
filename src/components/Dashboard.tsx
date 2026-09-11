@@ -19,6 +19,7 @@ export function Dashboard() {
 
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const themeToggleRef = useRef<HTMLButtonElement>(null);
 
   const load = useCallback((manual = false) => {
     if (manual) setIsRefreshing(true);
@@ -39,7 +40,7 @@ export function Dashboard() {
     const nextTheme = currentTheme === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", nextTheme);
 
-    const toggleBtn = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
+    const toggleBtn = themeToggleRef.current;
     if (toggleBtn) {
       toggleBtn.setAttribute("aria-label", `Switch to ${currentTheme} mode`);
       toggleBtn.innerHTML =
@@ -186,6 +187,7 @@ export function Dashboard() {
             type="button"
             className="theme-toggle"
             data-theme-toggle
+            ref={themeToggleRef}
             onClick={toggleTheme}
             aria-label="Switch theme mode (Shortcut: T)"
             title="Switch theme mode (Press 'T')"
