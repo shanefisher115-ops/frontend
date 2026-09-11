@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { CADViewer } from "./CADViewer";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -11,6 +12,7 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 };
 
 export function Dashboard() {
+  const [activeTab, setActiveTab] = useState<"cadViewer" | "database">("cadViewer");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -68,9 +70,9 @@ export function Dashboard() {
             </svg>
           </span>
           <div>
-            <h1 className="console__title">Primordia · Database Console</h1>
+            <h1 className="console__title">Primordia · 3D CAD & FEA Heatmap Console</h1>
             <p className="console__subtitle">
-              primordialorigin.com · Supabase client with mock fallback
+              primordialorigin.com · Three.js GLSL Von Mises Stress & Thermal Gradient Visualizer
             </p>
           </div>
         </div>
@@ -97,86 +99,129 @@ export function Dashboard() {
         </div>
       </header>
 
-      <section className="card connection-card">
-        <div className="connection-card__head">
-          <h2 className="card__title">Connection</h2>
-          <span className={`mode-pill mode-pill--${databaseMode}`}>
-            {databaseMode === "live" ? "Live mode" : "Mock mode"}
-          </span>
-        </div>
-        <p className="connection-card__desc">
-          The client auto-detects credentials from{" "}
-          <code>frontend/primordialorigin.com/.env</code>. Add{" "}
-          <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
-          then restart the dev server (or rebuild/redeploy) — the badge flips
-          to 🟢 Supabase Live automatically. No code changes required.
-        </p>
-        <dl className="diag-grid">
-          <DiagRow
-            label="VITE_SUPABASE_URL"
-            configured={envDiagnostics.url.configured}
-            value={envDiagnostics.url.masked}
-          />
-          <DiagRow
-            label="VITE_SUPABASE_ANON_KEY"
-            configured={envDiagnostics.key.configured}
-            value={envDiagnostics.key.masked}
-          />
-        </dl>
-      </section>
+      {/* Navigation Tabs */}
+      <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem" }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab("cadViewer")}
+          style={{
+            padding: "0.5rem 1.25rem",
+            borderRadius: "6px",
+            border: "1px solid " + (activeTab === "cadViewer" ? "#38bdf8" : "#334155"),
+            background: activeTab === "cadViewer" ? "#0284c7" : "#1e293b",
+            color: "#ffffff",
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            cursor: "pointer",
+          }}
+        >
+          🎨 3D CAD Heatmap Shaders
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("database")}
+          style={{
+            padding: "0.5rem 1.25rem",
+            borderRadius: "6px",
+            border: "1px solid " + (activeTab === "database" ? "#38bdf8" : "#334155"),
+            background: activeTab === "database" ? "#0284c7" : "#1e293b",
+            color: "#ffffff",
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            cursor: "pointer",
+          }}
+        >
+          📊 Supabase Telemetry Signals
+        </button>
+      </div>
 
-      {showError && (
-        <div className="card alert-card" role="alert">
-          <strong>Live query failed — serving mock data.</strong>
-          <p>{result?.error}</p>
-        </div>
+      {activeTab === "cadViewer" && (
+        <section className="card">
+          <CADViewer />
+        </section>
       )}
 
-      <section className="card">
-        <div className="signals__head">
-          <h2 className="card__title">Signals</h2>
-          <span className="signals__source">
-            {databaseMode === "live" && (
-              <span className="live-pulse" aria-hidden="true" />
-            )}
-            {result?.isMock ? "source: mock dataset" : "source: supabase"}
-            {lastUpdated && (
-              <span className="signals__updated">
-                · updated {timeAgo(lastUpdated)}
+      {activeTab === "database" && (
+        <>
+          <section className="card connection-card">
+            <div className="connection-card__head">
+              <h2 className="card__title">Connection</h2>
+              <span className={`mode-pill mode-pill--${databaseMode}`}>
+                {databaseMode === "live" ? "Live mode" : "Mock mode"}
               </span>
+            </div>
+            <p className="connection-card__desc">
+              The client auto-detects credentials from{" "}
+              <code>frontend/primordialorigin.com/.env</code>. Add{" "}
+              <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
+              then restart the dev server (or rebuild/redeploy) — the badge flips
+              to 🟢 Supabase Live automatically. No code changes required.
+            </p>
+            <dl className="diag-grid">
+              <DiagRow
+                label="VITE_SUPABASE_URL"
+                configured={envDiagnostics.url.configured}
+                value={envDiagnostics.url.masked}
+              />
+              <DiagRow
+                label="VITE_SUPABASE_ANON_KEY"
+                configured={envDiagnostics.key.configured}
+                value={envDiagnostics.key.masked}
+              />
+            </dl>
+          </section>
+
+          {showError && (
+            <div className="card alert-card" role="alert">
+              <strong>Live query failed — serving mock data.</strong>
+              <p>{result?.error}</p>
+            </div>
+          )}
+
+          <section className="card">
+            <div className="signals__head">
+              <h2 className="card__title">Signals</h2>
+              <span className="signals__source">
+                {databaseMode === "live" && (
+                  <span className="live-pulse" aria-hidden="true" />
+                )}
+                {result?.isMock ? "source: mock dataset" : "source: supabase"}
+                {lastUpdated && (
+                  <span className="signals__updated">
+                    · updated {timeAgo(lastUpdated)}
+                  </span>
+                )}
+              </span>
+            </div>
+            {loading ? (
+              <p className="muted">Loading…</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Origin</th>
+                      <th>Status</th>
+                      <th className="num">Intensity</th>
+                      <th>Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result?.signals.map((s) => (
+                      <SignalRow key={s.id} signal={s} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </span>
-        </div>
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Origin</th>
-                  <th>Status</th>
-                  <th className="num">Intensity</th>
-                  <th>Recorded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result?.signals.map((s) => (
-                  <SignalRow key={s.id} signal={s} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          </section>
+        </>
+      )}
 
       <footer className="console__footer">
         <p>
-          To go live: create a Supabase project, copy your Project URL + anon
-          key into <code>.env</code>, run the <code>signals</code> migration
-          (see <code>src/types/signal.ts</code>), then restart the dev server
-          or rebuild/redeploy.
+          Custom Three.js GLSL Shaders for FEA Surface Analysis · Von Mises Equivalent Stress & Thermal Gradient Heatmaps.
         </p>
       </footer>
     </div>
