@@ -1,3 +1,3 @@
-🎯 **What:** Missing test file for DatabaseStatusBadge.tsx was added.
-📊 **Coverage:** Covered rendering of "live" and "mock" fallback database modes via mock of the lib.
-✨ **Result:** Improved test coverage for DatabaseStatusBadge UI component ensuring correct labels and aria states are output depending on the `databaseMode` from `supabase` library.
+🎯 **What:** The vulnerability fixed was Unsafe `innerHTML` usage in the theme toggle.
+⚠️ **Risk:** The use of `toggle.innerHTML` with potentially user-controllable input (even if not strictly user-controlled in this exact instance, it creates a weak pattern) introduces a Cross-Site Scripting (XSS) vulnerability. If any script ever manipulated `mode` string to contain malicious payload, it would execute within the user's browser context.
+🛡️ **Solution:** The solution implemented moves the state handling to standard React `useState` and explicitly renders SVG elements safely in JSX, while avoiding completely direct unescaped assignments to `innerHTML` or bypassing React's built-in XSS protection mechanisms.
