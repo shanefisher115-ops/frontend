@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
-import { Dashboard } from "./Dashboard";
+import { Dashboard, timeAgo } from "./Dashboard";
 
 // Mock database module
 vi.mock("../lib/database", () => ({
@@ -122,5 +122,48 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
       fireEvent.keyDown(window, { key: "t" });
     });
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+});
+
+describe("timeAgo", () => {
+
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("formats seconds ago correctly", () => {
+    const now = Date.now();
+    expect(timeAgo(new Date(now - 10 * 1000))).toBe("10s ago");
+    expect(timeAgo(new Date(now - 59 * 1000))).toBe("59s ago");
+  });
+
+  it("formats minutes ago correctly and rounds properly", () => {
+    const now = Date.now();
+    expect(timeAgo(new Date(now - 60 * 1000))).toBe("1m ago");
+    expect(timeAgo(new Date(now - 59.5 * 1000))).toBe("1m ago"); // 59.5s rounds to 60s, so it triggers minutes block
+    expect(timeAgo(new Date(now - 90 * 1000))).toBe("2m ago"); // 1.5 minutes rounds to 2
+    expect(timeAgo(new Date(now - 59 * 60 * 1000))).toBe("59m ago");
+  });
+
+  it("formats hours ago correctly and rounds properly", () => {
+    const now = Date.now();
+    expect(timeAgo(new Date(now - 60 * 60 * 1000))).toBe("1h ago");
+    expect(timeAgo(new Date(now - 59.5 * 60 * 1000))).toBe("1h ago"); // 59.5m rounds to 60m
+    expect(timeAgo(new Date(now - 90 * 60 * 1000))).toBe("2h ago");
+    expect(timeAgo(new Date(now - 23 * 60 * 60 * 1000))).toBe("23h ago");
+  });
+
+  it("formats days ago correctly and rounds properly", () => {
+    const now = Date.now();
+    expect(timeAgo(new Date(now - 24 * 60 * 60 * 1000))).toBe("1d ago");
+    expect(timeAgo(new Date(now - 23.5 * 60 * 60 * 1000))).toBe("1d ago"); // 23.5h rounds to 24h
+    expect(timeAgo(new Date(now - 36 * 60 * 60 * 1000))).toBe("2d ago"); // 36 hours -> 2 days (36/24 = 1.5 -> 2)
+    expect(timeAgo(new Date(now - 100 * 24 * 60 * 60 * 1000))).toBe("100d ago");
   });
 });
