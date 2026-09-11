@@ -17,7 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const PLACEHOLDER_HINTS = ["your_", "your-", "<", "example", "replace", "insert"];
 
-function looksPlaceholder(value: string): boolean {
+export function looksPlaceholder(value: string): boolean {
   const v = value.toLowerCase();
   if (v.length < 10) return true;
   return PLACEHOLDER_HINTS.some((hint) => v.includes(hint));
@@ -65,7 +65,7 @@ export const envDiagnostics = {
   },
 };
 
-function maskUrl(url: string): string {
+export function maskUrl(url: string): string {
   if (!url) return "—";
   try {
     const u = new URL(url);
@@ -76,7 +76,7 @@ function maskUrl(url: string): string {
   }
 }
 
-function maskKey(key: string): string {
+export function maskKey(key: string): string {
   if (!key) return "—";
   if (key.length <= 12) return "•".repeat(key.length);
   return `${key.slice(0, 5)}…${key.slice(-4)} (${key.length} chars)`;
