@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { Audio3DConsole } from "./Audio3DConsole";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -124,6 +125,8 @@ export function Dashboard() {
           />
         </dl>
       </section>
+
+      <Audio3DConsole />
 
       {showError && (
         <div className="card alert-card" role="alert">
