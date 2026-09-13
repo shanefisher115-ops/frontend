@@ -571,6 +571,118 @@ tbody tr:hover {
   );
 }
 
+/* ---- Skip link ---- */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  background: var(--color-primary);
+  color: #ffffff;
+  padding: var(--space-2) var(--space-4);
+  z-index: 9999;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 600;
+  transition: top var(--transition-interactive);
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* ---- Keyboard shortcuts badge & dialog ---- */
+.kbd {
+  display: inline-block;
+  padding: 0.15em 0.45em;
+  font-family: var(--font-mono);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text);
+  background-color: var(--color-surface-offset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  transition:
+    color var(--transition-interactive),
+    border-color var(--transition-interactive),
+    background-color var(--transition-interactive);
+}
+
+.icon-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.shortcuts-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.shortcuts-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.shortcuts-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.shortcuts-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 /* ---- Footer ---- */
 .console__footer {
   margin-top: var(--space-2);
