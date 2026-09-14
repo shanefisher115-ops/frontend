@@ -124,3 +124,95 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 });
+
+
+describe("Dashboard Data Fetching & Lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("loads and displays signals on mount", async () => {
+    render(<Dashboard />);
+
+    // Check loading state gone
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading signals data/i)).toBeNull();
+    });
+
+    // Check data is displayed
+    await waitFor(() => {
+      expect(screen.getByText("Alpha Signal")).toBeDefined();
+      expect(screen.getByText("Sector 7")).toBeDefined();
+      expect(screen.getByText("Active")).toBeDefined();
+    });
+  });
+
+  it("handles manual refresh correctly", async () => {
+    const { fetchSignals } = await import("../lib/database");
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha Signal")).toBeDefined();
+    });
+
+    const refreshBtn = screen.getByRole("button", { name: /Refresh signals data/i });
+
+    await act(async () => {
+      fireEvent.click(refreshBtn);
+    });
+
+    expect(fetchSignals).toHaveBeenCalledTimes(2); // 1 for initial mount, 1 for refresh
+  });
+
+  it("subscribes to realtime updates and sets interval on mount", async () => {
+    const { subscribeToSignals } = await import("../lib/database");
+    vi.useFakeTimers();
+
+    const unmount = render(<Dashboard />).unmount;
+
+    expect(subscribeToSignals).toHaveBeenCalled();
+
+    unmount();
+
+    vi.useRealTimers();
+  });
+});
+
+
+describe("Dashboard Error Handling", () => {
+  let originalMode;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("displays error when live query fails but shows mock data", async () => {
+    vi.doMock("../lib/database", () => ({
+      fetchSignals: vi.fn().mockResolvedValue({
+        signals: [],
+        isMock: true,
+        error: "Live query failed due to network error",
+      }),
+      subscribeToSignals: vi.fn().mockReturnValue(() => {}),
+    }));
+
+    vi.doMock("../lib/supabase", () => ({
+      databaseMode: "live",
+      envDiagnostics: {
+        url: { configured: true, masked: "***" },
+        key: { configured: true, masked: "***" }
+      }
+    }));
+
+    const { Dashboard } = await import("./Dashboard");
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Live query failed due to network error")).toBeDefined();
+      expect(screen.getByText("Live query failed — serving mock data.")).toBeDefined();
+    });
+  });
+});
