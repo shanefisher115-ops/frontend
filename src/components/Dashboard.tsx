@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { Audio3DConsole } from "./Audio3DConsole";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -227,37 +228,42 @@ export function Dashboard() {
         </div>
       </header>
 
-      <main id="main-content">
-        <section className="card connection-card" aria-labelledby="connection-heading">
-          <div className="connection-card__head">
-            <h2 id="connection-heading" className="card__title">Connection</h2>
-            <span
-              className={`mode-pill mode-pill--${databaseMode}`}
-              aria-label={`Database mode: ${databaseMode === "live" ? "Live mode" : "Mock mode"}`}
-            >
-              {databaseMode === "live" ? "Live mode" : "Mock mode"}
-            </span>
-          </div>
-          <p className="connection-card__desc">
-            The client auto-detects credentials from{" "}
-            <code>frontend/primordialorigin.com/.env</code>. Add{" "}
-            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
-            then restart the dev server (or rebuild/redeploy) — the badge flips
-            to 🟢 Supabase Live automatically. No code changes required.
-          </p>
-          <dl className="diag-grid">
-            <DiagRow
-              label="VITE_SUPABASE_URL"
-              configured={envDiagnostics.url.configured}
-              value={envDiagnostics.url.masked}
-            />
-            <DiagRow
-              label="VITE_SUPABASE_ANON_KEY"
-              configured={envDiagnostics.key.configured}
-              value={envDiagnostics.key.masked}
-            />
-          </dl>
-        </section>
+      <section className="card connection-card">
+        <div className="connection-card__head">
+          <h2 className="card__title">Connection</h2>
+          <span className={`mode-pill mode-pill--${databaseMode}`}>
+            {databaseMode === "live" ? "Live mode" : "Mock mode"}
+          </span>
+        </div>
+        <p className="connection-card__desc">
+          The client auto-detects credentials from{" "}
+          <code>frontend/primordialorigin.com/.env</code>. Add{" "}
+          <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
+          then restart the dev server (or rebuild/redeploy) — the badge flips
+          to 🟢 Supabase Live automatically. No code changes required.
+        </p>
+        <dl className="diag-grid">
+          <DiagRow
+            label="VITE_SUPABASE_URL"
+            configured={envDiagnostics.url.configured}
+            value={envDiagnostics.url.masked}
+          />
+          <DiagRow
+            label="VITE_SUPABASE_ANON_KEY"
+            configured={envDiagnostics.key.configured}
+            value={envDiagnostics.key.masked}
+          />
+        </dl>
+      </section>
+
+      <Audio3DConsole />
+
+      {showError && (
+        <div className="card alert-card" role="alert">
+          <strong>Live query failed — serving mock data.</strong>
+          <p>{result?.error}</p>
+        </div>
+      )}
 
         {showError && (
           <div className="card alert-card" role="alert" aria-live="assertive">
