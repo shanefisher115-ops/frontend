@@ -123,6 +123,22 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     });
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
+
+  it("toggles theme when clicking theme button", async () => {
+    await act(async () => {
+      render(<Dashboard />);
+    });
+
+    const themeBtn = screen.getByRole("button", { name: /Switch to light mode/i });
+    expect(themeBtn).toBeDefined();
+
+    await act(async () => {
+      fireEvent.click(themeBtn);
+    });
+
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    expect(screen.getByRole("button", { name: /Switch to dark mode/i })).toBeDefined();
+  });
 });
 
 
@@ -181,7 +197,6 @@ describe("Dashboard Data Fetching & Lifecycle", () => {
 
 
 describe("Dashboard Error Handling", () => {
-  let originalMode;
 
   beforeEach(() => {
     vi.resetModules();
