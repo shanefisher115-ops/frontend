@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
@@ -13,11 +13,34 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 export function Dashboard() {
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [statusAnnouncement, setStatusAnnouncement] = useState<string>("");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") {
+      const attr = document.documentElement.getAttribute("data-theme");
+      if (attr === "light" || attr === "dark") return attr;
+    }
+    return "dark";
+  });
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
 
   const load = useCallback(() => {
+    setIsRefreshing(true);
     fetchSignals().then((r) => {
       setResult(r);
-      setLastUpdated(new Date());
+      const now = new Date();
+      setLastUpdated(now);
+      setIsRefreshing(false);
+      setStatusAnnouncement(`Signals refreshed at ${now.toLocaleTimeString()}`);
     });
   }, []);
 
@@ -33,12 +56,58 @@ export function Dashboard() {
     };
   }, [load]);
 
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore shortcut keys when typing inside input elements or textareas
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        load();
+      } else if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        toggleTheme();
+      } else if (e.key === "?" || (e.shiftKey && e.key === "/")) {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setShowShortcutsModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [load, toggleTheme]);
+
+  useEffect(() => {
+    if (showShortcutsModal && closeButtonRef.current) {
+      closeButtonRef.current.focus();
+    }
+  }, [showShortcutsModal]);
+
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
 
   return (
     <div className="console">
-      <header className="console__header">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      <div className="sr-only" role="status" aria-live="polite">
+        {statusAnnouncement}
+      </div>
+
+      <header className="console__header" role="banner">
         <div className="console__brand">
           <span className="console__logo" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -75,103 +144,168 @@ export function Dashboard() {
           </div>
         </div>
         <div className="console__header-right">
+          <button
+            type="button"
+            className="action-button"
+            onClick={() => setShowShortcutsModal(true)}
+            aria-label="View keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            <span>Shortcuts</span>
+            <kbd aria-hidden="true">?</kbd>
+          </button>
           <DatabaseStatusBadge />
           <button
             type="button"
             className="theme-toggle"
             data-theme-toggle
-            aria-label="Switch to light mode"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            aria-pressed={theme === "light"}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode (Hotkey: T)`}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
+            {theme === "dark" ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
           </button>
         </div>
       </header>
 
-      <section className="card connection-card">
-        <div className="connection-card__head">
-          <h2 className="card__title">Connection</h2>
-          <span className={`mode-pill mode-pill--${databaseMode}`}>
-            {databaseMode === "live" ? "Live mode" : "Mock mode"}
-          </span>
-        </div>
-        <p className="connection-card__desc">
-          The client auto-detects credentials from{" "}
-          <code>frontend/primordialorigin.com/.env</code>. Add{" "}
-          <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
-          then restart the dev server (or rebuild/redeploy) — the badge flips
-          to 🟢 Supabase Live automatically. No code changes required.
-        </p>
-        <dl className="diag-grid">
-          <DiagRow
-            label="VITE_SUPABASE_URL"
-            configured={envDiagnostics.url.configured}
-            value={envDiagnostics.url.masked}
-          />
-          <DiagRow
-            label="VITE_SUPABASE_ANON_KEY"
-            configured={envDiagnostics.key.configured}
-            value={envDiagnostics.key.masked}
-          />
-        </dl>
-      </section>
+      <main id="main-content" tabIndex={-1}>
+        <section className="card connection-card" aria-labelledby="connection-title">
+          <div className="connection-card__head">
+            <h2 id="connection-title" className="card__title">Connection</h2>
+            <span
+              className={`mode-pill mode-pill--${databaseMode}`}
+              aria-label={`Database mode: ${databaseMode === "live" ? "Live mode" : "Mock mode"}`}
+            >
+              {databaseMode === "live" ? "Live mode" : "Mock mode"}
+            </span>
+          </div>
+          <p className="connection-card__desc">
+            The client auto-detects credentials from{" "}
+            <code>frontend/primordialorigin.com/.env</code>. Add{" "}
+            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
+            then restart the dev server (or rebuild/redeploy) — the badge flips
+            to 🟢 Supabase Live automatically. No code changes required.
+          </p>
+          <dl className="diag-grid">
+            <DiagRow
+              label="VITE_SUPABASE_URL"
+              configured={envDiagnostics.url.configured}
+              value={envDiagnostics.url.masked}
+            />
+            <DiagRow
+              label="VITE_SUPABASE_ANON_KEY"
+              configured={envDiagnostics.key.configured}
+              value={envDiagnostics.key.masked}
+            />
+          </dl>
+        </section>
 
-      {showError && (
-        <div className="card alert-card" role="alert">
-          <strong>Live query failed — serving mock data.</strong>
-          <p>{result?.error}</p>
-        </div>
-      )}
-
-      <section className="card">
-        <div className="signals__head">
-          <h2 className="card__title">Signals</h2>
-          <span className="signals__source">
-            {databaseMode === "live" && (
-              <span className="live-pulse" aria-hidden="true" />
-            )}
-            {result?.isMock ? "source: mock dataset" : "source: supabase"}
-            {lastUpdated && (
-              <span className="signals__updated">
-                · updated {timeAgo(lastUpdated)}
-              </span>
-            )}
-          </span>
-        </div>
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Origin</th>
-                  <th>Status</th>
-                  <th className="num">Intensity</th>
-                  <th>Recorded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result?.signals.map((s) => (
-                  <SignalRow key={s.id} signal={s} />
-                ))}
-              </tbody>
-            </table>
+        {showError && (
+          <div className="card alert-card" role="alert" aria-live="assertive">
+            <strong>Live query failed — serving mock data.</strong>
+            <p>{result?.error}</p>
           </div>
         )}
-      </section>
 
-      <footer className="console__footer">
+        <section className="card" style={{ marginTop: "1.5rem" }} aria-labelledby="signals-title">
+          <div className="signals__head">
+            <h2 id="signals-title" className="card__title">Signals</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="action-button"
+                onClick={load}
+                disabled={isRefreshing}
+                aria-label="Refresh signals telemetry"
+                title="Refresh signals (Hotkey: R)"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                  style={{
+                    animation: isRefreshing ? "spin 1s linear infinite" : "none",
+                  }}
+                >
+                  <path d="M23 4v6h-6" />
+                  <path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span>{isRefreshing ? "Refreshing…" : "Refresh"}</span>
+                <kbd aria-hidden="true">R</kbd>
+              </button>
+              <span className="signals__source">
+                {databaseMode === "live" && (
+                  <span className="live-pulse" aria-hidden="true" />
+                )}
+                {result?.isMock ? "source: mock dataset" : "source: supabase"}
+                {lastUpdated && (
+                  <span className="signals__updated">
+                    · updated {timeAgo(lastUpdated)}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+          {loading ? (
+            <p className="muted" role="status">Loading…</p>
+          ) : (
+            <div className="table-wrap">
+              <table aria-labelledby="signals-title">
+                <caption className="sr-only">
+                  List of database signal statuses, origins, intensities, and recorded times.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Origin</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="num">Intensity</th>
+                    <th scope="col">Recorded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result?.signals.map((s) => (
+                    <SignalRow key={s.id} signal={s} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+
+      <footer className="console__footer" role="contentinfo">
         <p>
           To go live: create a Supabase project, copy your Project URL + anon
           key into <code>.env</code>, run the <code>signals</code> migration
@@ -179,6 +313,53 @@ export function Dashboard() {
           or rebuild/redeploy.
         </p>
       </footer>
+
+      {showShortcutsModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowShortcutsModal(false)}
+          aria-hidden="false"
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal__header">
+              <h2 id="modal-title" className="card__title">Keyboard Shortcuts</h2>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="modal__close"
+                onClick={() => setShowShortcutsModal(false)}
+                aria-label="Close keyboard shortcuts modal"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="shortcut-list">
+              <div className="shortcut-item">
+                <span>Refresh signals</span>
+                <kbd>R</kbd>
+              </div>
+              <div className="shortcut-item">
+                <span>Toggle theme</span>
+                <kbd>T</kbd>
+              </div>
+              <div className="shortcut-item">
+                <span>Toggle shortcuts help</span>
+                <kbd>?</kbd>
+              </div>
+              <div className="shortcut-item">
+                <span>Close modal</span>
+                <kbd>Esc</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -200,10 +381,11 @@ function DiagRow({
       <dd>
         <span
           className={`diag-state ${configured ? "diag-state--ok" : "diag-state--missing"}`}
+          aria-label={`${label} status: ${configured ? "configured" : "missing"}`}
         >
           {configured ? "set" : "missing"}
         </span>
-        <span className="diag-value">{value}</span>
+        <span className="diag-value" aria-label={`${label} value: ${value}`}>{value}</span>
       </dd>
     </div>
   );
@@ -211,28 +393,39 @@ function DiagRow({
 
 function SignalRow({ signal }: { signal: Signal }) {
   const recorded = new Date(signal.recorded_at);
+  const intensityValue = Math.max(0, Math.min(100, signal.intensity));
   return (
     <tr>
       <td className="signal-name">{signal.name}</td>
       <td className="muted">{signal.origin}</td>
       <td>
-        <span className={`status-chip status-chip--${signal.status}`}>
+        <span
+          className={`status-chip status-chip--${signal.status}`}
+          aria-label={`Status: ${STATUS_LABEL[signal.status]}`}
+        >
           {STATUS_LABEL[signal.status]}
         </span>
       </td>
       <td className="num">
-        <div className="intensity">
-          <div className="intensity__bar">
+        <div
+          className="intensity"
+          role="progressbar"
+          aria-valuenow={intensityValue}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Intensity: ${signal.intensity} out of 100`}
+        >
+          <div className="intensity__bar" aria-hidden="true">
             <div
               className="intensity__fill"
-              style={{ width: `${Math.max(0, Math.min(100, signal.intensity))}%` }}
+              style={{ width: `${intensityValue}%` }}
             />
           </div>
           <span>{signal.intensity}</span>
         </div>
       </td>
       <td className="muted" title={recorded.toLocaleString()}>
-        {timeAgo(recorded)}
+        <time dateTime={recorded.toISOString()}>{timeAgo(recorded)}</time>
       </td>
     </tr>
   );
