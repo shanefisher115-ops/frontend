@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { databaseMode } from "../lib/supabase";
 
 /**
@@ -11,14 +12,29 @@ import { databaseMode } from "../lib/supabase";
  */
 export function DatabaseStatusBadge() {
   const isLive = databaseMode === "live";
+  const [pulseAnnouncement, setPulseAnnouncement] = useState("");
+
+  // Announce status to screen readers on mount
+  useEffect(() => {
+    setPulseAnnouncement(
+      isLive
+        ? "Database status: Connected to Supabase Live database."
+        : "Database status: Using Mock Fallback data."
+    );
+  }, [isLive]);
+
   return (
-    <span
+    <div
       className={`status-badge ${isLive ? "status-badge--live" : "status-badge--mock"}`}
       role="status"
+      aria-live="polite"
+      aria-atomic="true"
       data-testid="status-database-mode"
       aria-label={isLive ? "Supabase Live" : "Using Mock Fallback"}
     >
-      {isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}
-    </span>
+      <span className="status-badge__dot" aria-hidden="true" />
+      <span>{isLive ? "🟢 Supabase Live" : "🔴 Using Mock Fallback"}</span>
+      <span className="sr-only">{pulseAnnouncement}</span>
+    </div>
   );
 }
