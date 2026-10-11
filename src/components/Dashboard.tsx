@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { WhiteboardCanvas } from "./whiteboard/WhiteboardCanvas";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -11,6 +12,8 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 };
 
 export function Dashboard() {
+  const [activeTab, setActiveTab] = useState<"whiteboard" | "database">("whiteboard");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -61,73 +64,26 @@ export function Dashboard() {
 
   useEffect(() => {
     load();
-    const unsubscribe = subscribeToSignals(() => load(false));
-    const interval = setInterval(() => load(false), 15000);
+    const unsubscribe = subscribeToSignals(load);
+    const interval = setInterval(load, 15000);
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
   }, [load]);
 
-  // Keyboard shortcuts listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore key events when user is typing inside input, textarea, or contentEditable
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      if (e.key === "Escape" && showShortcutsModal) {
-        e.preventDefault();
-        setShowShortcutsModal(false);
-        return;
-      }
-
-      if (e.key === "r" || e.key === "R") {
-        e.preventDefault();
-        load(true);
-      } else if (e.key === "t" || e.key === "T") {
-        e.preventDefault();
-        toggleTheme();
-      } else if (e.key === "?" || e.key === "h" || e.key === "H") {
-        e.preventDefault();
-        toggleShortcutsModal();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [load, toggleTheme, toggleShortcutsModal, showShortcutsModal]);
-
-  // Focus management when shortcuts modal opens
-  useEffect(() => {
-    if (showShortcutsModal && closeButtonRef.current) {
-      closeButtonRef.current.focus();
-    }
-  }, [showShortcutsModal]);
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+  };
 
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
 
   return (
-    <div className="console">
-      {/* Skip to main content link for keyboard navigation */}
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
-
-      {/* Live region for screen reader announcements */}
-      <div className="sr-only" role="status" aria-live="polite">
-        {announcement}
-      </div>
-
-      <header className="console__header" role="banner">
+    <div className={`console ${activeTab === "whiteboard" ? "console--full" : ""}`}>
+      <header className="console__header">
         <div className="console__brand">
           <span className="console__logo" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -151,12 +107,31 @@ export function Dashboard() {
             </svg>
           </span>
           <div>
-            <h1 className="console__title">Primordia · Database Console</h1>
+            <h1 className="console__title">Primordia · Unified Canvas & Console</h1>
             <p className="console__subtitle">
-              primordialorigin.com · Supabase client with mock fallback
+              primordialorigin.com · Infinite CAD, Code, Agent & Telemetry Canvas
             </p>
           </div>
         </div>
+
+        {/* View mode switcher */}
+        <div className="console__tabs">
+          <button
+            type="button"
+            className={`console__tab ${activeTab === "whiteboard" ? "console__tab--active" : ""}`}
+            onClick={() => setActiveTab("whiteboard")}
+          >
+            🎨 Infinite Whiteboard
+          </button>
+          <button
+            type="button"
+            className={`console__tab ${activeTab === "database" ? "console__tab--active" : ""}`}
+            onClick={() => setActiveTab("database")}
+          >
+            🗄️ Database Console
+          </button>
+        </div>
+
         <div className="console__header-right">
           <DatabaseStatusBadge />
           <button
@@ -187,8 +162,8 @@ export function Dashboard() {
             className="theme-toggle"
             data-theme-toggle
             onClick={toggleTheme}
-            aria-label="Switch theme mode (Shortcut: T)"
-            title="Switch theme mode (Press 'T')"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
             <svg
               width="18"
@@ -227,44 +202,87 @@ export function Dashboard() {
         </div>
       </header>
 
-      <main id="main-content">
-        <section className="card connection-card" aria-labelledby="connection-heading">
-          <div className="connection-card__head">
-            <h2 id="connection-heading" className="card__title">Connection</h2>
-            <span
-              className={`mode-pill mode-pill--${databaseMode}`}
-              aria-label={`Database mode: ${databaseMode === "live" ? "Live mode" : "Mock mode"}`}
-            >
-              {databaseMode === "live" ? "Live mode" : "Mock mode"}
-            </span>
-          </div>
-          <p className="connection-card__desc">
-            The client auto-detects credentials from{" "}
-            <code>frontend/primordialorigin.com/.env</code>. Add{" "}
-            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
-            then restart the dev server (or rebuild/redeploy) — the badge flips
-            to 🟢 Supabase Live automatically. No code changes required.
-          </p>
-          <dl className="diag-grid">
-            <DiagRow
-              label="VITE_SUPABASE_URL"
-              configured={envDiagnostics.url.configured}
-              value={envDiagnostics.url.masked}
-            />
-            <DiagRow
-              label="VITE_SUPABASE_ANON_KEY"
-              configured={envDiagnostics.key.configured}
-              value={envDiagnostics.key.masked}
-            />
-          </dl>
-        </section>
+      {activeTab === "whiteboard" ? (
+        <main>
+          <WhiteboardCanvas />
+        </main>
+      ) : (
+        <main className="console__main">
+          <section className="card connection-card">
+            <div className="connection-card__head">
+              <h2 className="card__title">Connection</h2>
+              <span className={`mode-pill mode-pill--${databaseMode}`}>
+                {databaseMode === "live" ? "Live mode" : "Mock mode"}
+              </span>
+            </div>
+            <p className="connection-card__desc">
+              The client auto-detects credentials from{" "}
+              <code>frontend/primordialorigin.com/.env</code>. Add{" "}
+              <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>,{" "}
+              then restart the dev server (or rebuild/redeploy) — the badge flips
+              to 🟢 Supabase Live automatically. No code changes required.
+            </p>
+            <dl className="diag-grid">
+              <DiagRow
+                label="VITE_SUPABASE_URL"
+                configured={envDiagnostics.url.configured}
+                value={envDiagnostics.url.masked}
+              />
+              <DiagRow
+                label="VITE_SUPABASE_ANON_KEY"
+                configured={envDiagnostics.key.configured}
+                value={envDiagnostics.key.masked}
+              />
+            </dl>
+          </section>
 
-        {showError && (
-          <div className="card alert-card" role="alert" aria-live="assertive">
-            <strong>Live query failed — serving mock data.</strong>
-            <p>{result?.error}</p>
-          </div>
-        )}
+          {showError && (
+            <div className="card alert-card" role="alert">
+              <strong>Live query failed — serving mock data.</strong>
+              <p>{result?.error}</p>
+            </div>
+          )}
+
+          <section className="card">
+            <div className="signals__head">
+              <h2 className="card__title">Signals</h2>
+              <span className="signals__source">
+                {databaseMode === "live" && (
+                  <span className="live-pulse" aria-hidden="true" />
+                )}
+                {result?.isMock ? "source: mock dataset" : "source: supabase"}
+                {lastUpdated && (
+                  <span className="signals__updated">
+                    · updated {timeAgo(lastUpdated)}
+                  </span>
+                )}
+              </span>
+            </div>
+            {loading ? (
+              <p className="muted">Loading…</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Origin</th>
+                      <th>Status</th>
+                      <th className="num">Intensity</th>
+                      <th>Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result?.signals.map((s) => (
+                      <SignalRow key={s.id} signal={s} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </main>
+      )}
 
         <section className="card" aria-labelledby="signals-heading">
           <div className="signals__head">
@@ -313,10 +331,8 @@ export function Dashboard() {
 
       <footer className="console__footer" role="contentinfo">
         <p>
-          To go live: create a Supabase project, copy your Project URL + anon
-          key into <code>.env</code>, run the <code>signals</code> migration
-          (see <code>src/types/signal.ts</code>), then restart the dev server
-          or rebuild/redeploy. Press <kbd>?</kbd> for keyboard shortcuts.
+          Infinite Zoomable Whiteboard Canvas with 3D CAD viewports, Code Editors,
+          Agent Reasoning Graphs, and Real-time Telemetry Widgets.
         </p>
       </footer>
 
