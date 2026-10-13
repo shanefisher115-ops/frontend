@@ -42,7 +42,7 @@ export const DEFAULT_PRESETS: PresetLayout[] = [
         data: {
           filename: "flight_controller.ts",
           language: "typescript",
-          code: `import { SignalTelemetry, CadFrame } from "@primordia/core";
+          code: `import { SignalTelemetry } from "@primordia/core";
 
 export async function processTelemetryCycle(telemetry: SignalTelemetry) {
   const { cpuUsage, latencyMs, signalRate } = telemetry;
