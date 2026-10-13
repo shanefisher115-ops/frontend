@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 };
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState<"whiteboard" | "database">("whiteboard");
+  const [activeTab, setActiveTab] = useState<"database" | "whiteboard">("database");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -37,22 +37,11 @@ export function Dashboard() {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    const root = document.documentElement;
-    const currentTheme = root.getAttribute("data-theme") || "dark";
-    const nextTheme = currentTheme === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", nextTheme);
-
-    const toggleBtn = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
-    if (toggleBtn) {
-      toggleBtn.setAttribute("aria-label", `Switch to ${currentTheme} mode`);
-      toggleBtn.innerHTML =
-        nextTheme === "dark"
-          ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
-          : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-    }
-
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
     setAnnouncement(`Theme changed to ${nextTheme} mode`);
-  }, []);
+  }, [theme]);
 
   const handleRefreshClick = () => {
     load(true);
@@ -72,17 +61,47 @@ export function Dashboard() {
     };
   }, [load]);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    document.documentElement.setAttribute("data-theme", nextTheme);
-  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        load(true);
+      } else if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        toggleTheme();
+      } else if (e.key === "?" || e.key === "h" || e.key === "H") {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setShowShortcutsModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [load, toggleTheme]);
 
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
 
   return (
     <div className={`console ${activeTab === "whiteboard" ? "console--full" : ""}`}>
+      <a href="#main-content" className="sr-only skip-link">
+        Skip to main content
+      </a>
+      {announcement && (
+        <div className="sr-only" role="status" aria-live="polite">
+          {announcement}
+        </div>
+      )}
       <header className="console__header">
         <div className="console__brand">
           <span className="console__logo" aria-hidden="true">
@@ -203,11 +222,11 @@ export function Dashboard() {
       </header>
 
       {activeTab === "whiteboard" ? (
-        <main>
+        <main id="main-content">
           <WhiteboardCanvas />
         </main>
       ) : (
-        <main className="console__main">
+        <main className="console__main" id="main-content">
           <section className="card connection-card">
             <div className="connection-card__head">
               <h2 className="card__title">Connection</h2>
@@ -243,9 +262,9 @@ export function Dashboard() {
             </div>
           )}
 
-          <section className="card">
+          <section className="card" aria-labelledby="signals-heading">
             <div className="signals__head">
-              <h2 className="card__title">Signals</h2>
+              <h2 id="signals-heading" className="card__title">Signals</h2>
               <span className="signals__source">
                 {databaseMode === "live" && (
                   <span className="live-pulse" aria-hidden="true" />
@@ -253,23 +272,28 @@ export function Dashboard() {
                 {result?.isMock ? "source: mock dataset" : "source: supabase"}
                 {lastUpdated && (
                   <span className="signals__updated">
-                    · updated {timeAgo(lastUpdated)}
+                    · updated{" "}
+                    <time dateTime={lastUpdated.toISOString()}>
+                      {timeAgo(lastUpdated)}
+                    </time>
                   </span>
                 )}
               </span>
             </div>
             {loading ? (
-              <p className="muted">Loading…</p>
+              <p className="muted" role="status" aria-live="polite">
+                Loading signals data…
+              </p>
             ) : (
               <div className="table-wrap">
-                <table>
+                <table aria-label="Database Signals">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Origin</th>
-                      <th>Status</th>
-                      <th className="num">Intensity</th>
-                      <th>Recorded</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">Origin</th>
+                      <th scope="col">Status</th>
+                      <th scope="col" className="num">Intensity</th>
+                      <th scope="col">Recorded</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -283,51 +307,6 @@ export function Dashboard() {
           </section>
         </main>
       )}
-
-        <section className="card" aria-labelledby="signals-heading">
-          <div className="signals__head">
-            <h2 id="signals-heading" className="card__title">Signals</h2>
-            <span className="signals__source">
-              {databaseMode === "live" && (
-                <span className="live-pulse" aria-hidden="true" />
-              )}
-              {result?.isMock ? "source: mock dataset" : "source: supabase"}
-              {lastUpdated && (
-                <span className="signals__updated">
-                  · updated{" "}
-                  <time dateTime={lastUpdated.toISOString()}>
-                    {timeAgo(lastUpdated)}
-                  </time>
-                </span>
-              )}
-            </span>
-          </div>
-          {loading ? (
-            <p className="muted" role="status" aria-live="polite">
-              Loading signals data…
-            </p>
-          ) : (
-            <div className="table-wrap">
-              <table aria-label="Database Signals">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Origin</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" className="num">Intensity</th>
-                    <th scope="col">Recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result?.signals.map((s) => (
-                    <SignalRow key={s.id} signal={s} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </main>
 
       <footer className="console__footer" role="contentinfo">
         <p>

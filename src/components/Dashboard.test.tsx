@@ -181,7 +181,6 @@ describe("Dashboard Data Fetching & Lifecycle", () => {
 
 
 describe("Dashboard Error Handling", () => {
-  let originalMode;
 
   beforeEach(() => {
     vi.resetModules();

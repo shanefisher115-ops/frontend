@@ -58,7 +58,7 @@ export function WhiteboardCanvas() {
 
   // Container resize observer
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
