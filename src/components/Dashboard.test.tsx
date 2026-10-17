@@ -216,6 +216,7 @@ describe("Dashboard Error Handling", () => {
 
     vi.doMock("../lib/supabase", () => ({
       databaseMode: "live",
+      supabase: null,
       envDiagnostics: {
         url: { configured: true, masked: "***" },
         key: { configured: true, masked: "***" }

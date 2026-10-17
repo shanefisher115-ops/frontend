@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { FactsPanel } from "./FactsPanel";
 import { WhiteboardCanvas } from "./whiteboard/WhiteboardCanvas";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
@@ -304,6 +305,8 @@ export function Dashboard() {
               </div>
             )}
           </section>
+
+          <FactsPanel />
         </main>
       )}
 
