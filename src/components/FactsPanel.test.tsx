@@ -33,12 +33,16 @@ const sampleFacts = [
 ];
 
 let authCallback: ((session: Session | null) => void) | null = null;
+let subscribeCallback: (() => void) | null = null;
 
 function mockFactsModule(overrides: Partial<Record<string, unknown>> = {}) {
   vi.doMock("../lib/facts", () => ({
     fetchFacts: vi.fn().mockResolvedValue({ facts: sampleFacts, mode: "live", error: null }),
     insertFact: vi.fn().mockResolvedValue({ error: null }),
-    subscribeToFacts: vi.fn().mockReturnValue(() => {}),
+    subscribeToFacts: vi.fn((cb: () => void) => {
+      subscribeCallback = cb;
+      return () => {};
+    }),
     getFactSession: vi.fn().mockResolvedValue(mockSession),
     signInForFacts: vi.fn().mockResolvedValue({ error: null }),
     signOutFromFacts: vi.fn().mockResolvedValue(undefined),
@@ -350,5 +354,52 @@ describe("FactsPanel — live mode, signed in", () => {
 
     expect(screen.queryByText("PrimordiaOS Task Claiming")).toBeNull();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+  });
+
+  it("clears the refresh spinner when a realtime refetch supersedes a manual refresh", async () => {
+    vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
+    // Second call (manual refresh) stays pending; third call (realtime) resolves.
+    let resolveManual: (value: unknown) => void = () => {};
+    const manualFetch = new Promise((resolve) => {
+      resolveManual = resolve;
+    });
+    const fetchFacts = vi
+      .fn()
+      .mockResolvedValueOnce({ facts: sampleFacts, mode: "live", error: null }) // mount
+      .mockReturnValueOnce(manualFetch) // manual refresh
+      .mockResolvedValueOnce({ facts: sampleFacts, mode: "live", error: null }); // realtime refetch
+    mockFactsModule({ fetchFacts });
+
+    const { FactsPanel } = await import("./FactsPanel");
+    await act(async () => {
+      render(<FactsPanel />);
+    });
+    await waitFor(() => {
+      expect(screen.getByText("PrimordiaOS Task Claiming")).toBeDefined();
+    });
+
+    // Manual refresh starts a pending request.
+    const refreshBtn = screen.getByRole("button", { name: "Refresh facts data" });
+    await act(async () => {
+      fireEvent.click(refreshBtn);
+    });
+    expect(refreshBtn.hasAttribute("disabled")).toBe(true); // spinner active
+
+    // A realtime event fires a refetch that supersedes the manual one.
+    await act(async () => {
+      subscribeCallback?.();
+    });
+
+    // The superseded manual request finally settles — the spinner must clear
+    // and the panel must stay functional (facts from the newer request).
+    await act(async () => {
+      resolveManual({ facts: [], mode: "live", error: null });
+      await manualFetch;
+    });
+
+    await waitFor(() => {
+      expect(refreshBtn.hasAttribute("disabled")).toBe(false);
+    });
+    expect(screen.getByText("PrimordiaOS Task Claiming")).toBeDefined();
   });
 });

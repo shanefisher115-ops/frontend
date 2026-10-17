@@ -45,6 +45,9 @@ export function FactsPanel() {
   // a stale in-flight fetch: every load() is tagged, and results from an older
   // generation (e.g. started before sign-out) are ignored.
   const requestGenRef = useRef(0);
+  // The generation that started the manual-refresh spinner, so it is always
+  // cleared — even when a newer request supersedes the manual one.
+  const refreshingGenRef = useRef<number | null>(null);
 
   // Establish the auth session first — pko_facts requires `authenticated`,
   // and a signed-out SELECT can silently return [] instead of an error.
@@ -66,12 +69,30 @@ export function FactsPanel() {
 
   const load = useCallback((manual = false) => {
     const gen = ++requestGenRef.current;
-    if (manual) setIsRefreshing(true);
-    fetchFacts().then((r) => {
-      if (gen !== requestGenRef.current) return; // stale request — ignore
-      setResult(r);
-      if (manual) setIsRefreshing(false);
-    });
+    if (manual) {
+      refreshingGenRef.current = gen;
+      setIsRefreshing(true);
+    }
+    fetchFacts()
+      .then((r) => {
+        if (gen !== requestGenRef.current) return; // stale request — ignore
+        setResult(r);
+      })
+      .catch(() => {
+        // Rejected promises (network/adapter) must not leave the panel stuck.
+        if (gen !== requestGenRef.current) return;
+        setResult({
+          facts: [],
+          mode: databaseMode === "live" ? "live" : "mock",
+          error: "Unexpected error while fetching facts.",
+        });
+      })
+      .finally(() => {
+        if (refreshingGenRef.current === gen) {
+          refreshingGenRef.current = null;
+          setIsRefreshing(false);
+        }
+      });
   }, []);
 
   // Fetch + subscribe only when there is a session (or in mock mode, which
@@ -87,6 +108,9 @@ export function FactsPanel() {
       };
     }
     setResult(null);
+    // Reset busy state on authentication loss.
+    refreshingGenRef.current = null;
+    setIsRefreshing(false);
   }, [load, session]);
 
   const handleRefreshClick = () => {
