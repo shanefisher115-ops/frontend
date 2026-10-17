@@ -32,6 +32,8 @@ const sampleFacts = [
   },
 ];
 
+let authCallback: ((session: Session | null) => void) | null = null;
+
 function mockFactsModule(overrides: Partial<Record<string, unknown>> = {}) {
   vi.doMock("../lib/facts", () => ({
     fetchFacts: vi.fn().mockResolvedValue({ facts: sampleFacts, mode: "live", error: null }),
@@ -40,7 +42,10 @@ function mockFactsModule(overrides: Partial<Record<string, unknown>> = {}) {
     getFactSession: vi.fn().mockResolvedValue(mockSession),
     signInForFacts: vi.fn().mockResolvedValue({ error: null }),
     signOutFromFacts: vi.fn().mockResolvedValue(undefined),
-    onAuthStateChange: vi.fn().mockReturnValue(() => {}),
+    onAuthStateChange: vi.fn((cb: (session: Session | null) => void) => {
+      authCallback = cb;
+      return () => {};
+    }),
     ...overrides,
   }));
 }
@@ -266,7 +271,8 @@ describe("FactsPanel — live mode, signed in", () => {
     await waitFor(() => {
       expect(screen.getByText("Permission denied — sign in above.")).toBeDefined();
     });
-    expect(screen.queryByText("PrimordiaOS Task Claiming")).toBeNull();
+    // Error and empty state must be exclusive.
+    expect(screen.queryByText(/No facts yet/i)).toBeNull();
   });
 
   it("offers sign-out and calls it", async () => {
@@ -287,5 +293,62 @@ describe("FactsPanel — live mode, signed in", () => {
 
     const { signOutFromFacts } = await import("../lib/facts");
     expect(signOutFromFacts).toHaveBeenCalled();
+  });
+
+  it("clears facts and hides write controls when the auth state goes to signed out", async () => {
+    vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
+    mockFactsModule();
+
+    const { FactsPanel } = await import("./FactsPanel");
+    await act(async () => {
+      render(<FactsPanel />);
+    });
+    await waitFor(() => {
+      expect(screen.getByText("PrimordiaOS Task Claiming")).toBeDefined();
+    });
+
+    // Supabase Auth fires SIGNED_OUT — the session drops to null.
+    await act(async () => {
+      authCallback?.(null);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+    });
+    expect(screen.queryByText("PrimordiaOS Task Claiming")).toBeNull();
+    expect(screen.queryByText("Add fact")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Refresh facts data" })).toBeNull();
+  });
+
+  it("ignores a stale in-flight fetch that resolves after sign-out", async () => {
+    vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
+    // A fetch starts while signed in but only resolves after sign-out.
+    let resolveFetch: (value: unknown) => void = () => {};
+    const pendingFetch = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    mockFactsModule({ fetchFacts: vi.fn().mockReturnValue(pendingFetch) });
+
+    const { FactsPanel } = await import("./FactsPanel");
+    await act(async () => {
+      render(<FactsPanel />);
+    });
+
+    // Sign out before the fetch resolves.
+    await act(async () => {
+      authCallback?.(null);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+    });
+
+    // The stale authenticated response arrives late — it must be ignored.
+    await act(async () => {
+      resolveFetch({ facts: sampleFacts, mode: "live", error: null });
+      await pendingFetch;
+    });
+
+    expect(screen.queryByText("PrimordiaOS Task Claiming")).toBeNull();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
   });
 });
