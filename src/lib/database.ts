@@ -64,7 +64,7 @@ export function formatSupabaseError(error: {
   if (error.code === "42P01" || /relation .* does not exist/i.test(error.message)) {
     return "The `signals` table does not exist in your Supabase project yet. Run the migration SQL (see src/types/signal.ts) to create it.";
   }
-  return `${error.code ? `[${error.code}] ` : ""}${error.message}`;
+  return "An unexpected error occurred while communicating with the database.";
 }
 
 /**
