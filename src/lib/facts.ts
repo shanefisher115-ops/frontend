@@ -119,10 +119,11 @@ export async function signInForFacts(
   return { error: null };
 }
 
-/** Sign out the current session. */
+/** Sign out the current session. Throws when the underlying call reports an error. */
 export async function signOutFromFacts(): Promise<void> {
   if (databaseMode === "mock" || !supabase) return;
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 }
 
 /** Fire `cb` on auth state changes; returns an unsubscribe function. */
