@@ -40,24 +40,24 @@ export function FactsPanel() {
   const [password, setPassword] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Request generation counter. Signed-out state must never render facts from
   // a stale in-flight fetch: every load() is tagged, and results from an older
   // generation (e.g. started before sign-out) are ignored.
   const requestGenRef = useRef(0);
-  // The generation that started the manual-refresh spinner, so it is always
-  // cleared — even when a newer request supersedes the manual one.
-  const refreshingGenRef = useRef<number | null>(null);
 
   // Establish the auth session first — pko_facts requires `authenticated`,
   // and a signed-out SELECT can silently return [] instead of an error.
   useEffect(() => {
     let mounted = true;
-    getFactSession().then((s) => {
-      if (!mounted) return;
-      setSession(s);
-      setAuthChecked(true);
-    });
+    getFactSession()
+      .catch(() => null) // a rejected session check must not stick on "Checking session…"
+      .then((s) => {
+        if (!mounted) return;
+        setSession(s);
+        setAuthChecked(true);
+      });
     const unsubscribeAuth = onAuthStateChange((s) => {
       setSession(s);
     });
@@ -69,10 +69,7 @@ export function FactsPanel() {
 
   const load = useCallback((manual = false) => {
     const gen = ++requestGenRef.current;
-    if (manual) {
-      refreshingGenRef.current = gen;
-      setIsRefreshing(true);
-    }
+    if (manual) setIsRefreshing(true);
     fetchFacts()
       .then((r) => {
         if (gen !== requestGenRef.current) return; // stale request — ignore
@@ -88,10 +85,9 @@ export function FactsPanel() {
         });
       })
       .finally(() => {
-        if (refreshingGenRef.current === gen) {
-          refreshingGenRef.current = null;
-          setIsRefreshing(false);
-        }
+        // The spinner clears when the LATEST request settles — regardless of
+        // which request (manual or realtime) started it or superseded it.
+        if (gen === requestGenRef.current) setIsRefreshing(false);
       });
   }, []);
 
@@ -109,7 +105,6 @@ export function FactsPanel() {
     }
     setResult(null);
     // Reset busy state on authentication loss.
-    refreshingGenRef.current = null;
     setIsRefreshing(false);
   }, [load, session]);
 
@@ -118,18 +113,29 @@ export function FactsPanel() {
   };
 
   const handleSignOut = async () => {
-    await signOutFromFacts();
+    setAuthError(null);
+    try {
+      await signOutFromFacts();
+    } catch (err) {
+      console.warn("[pko-facts] sign-out failed:", err);
+      setAuthError("Sign-out failed. Check the connection and try again.");
+    }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSigningIn(true);
     setSignInError(null);
-    const { error } = await signInForFacts(email.trim(), password);
-    if (error) {
-      setSignInError(error);
+    try {
+      const { error } = await signInForFacts(email.trim(), password);
+      if (error) {
+        setSignInError(error);
+      }
+    } catch {
+      setSignInError("Sign-in failed unexpectedly. Try again.");
+    } finally {
+      setSigningIn(false);
     }
-    setSigningIn(false);
   };
 
   const handleAddFact = async (e: React.FormEvent) => {
@@ -140,16 +146,22 @@ export function FactsPanel() {
     }
     setSubmitting(true);
     setSubmitError(null);
-    const { error } = await insertFact({
-      topic: topic.trim(),
-      summary: summary.trim(),
-      key_points: splitLines(keyPointsText),
-      sources: splitLines(sourcesText),
-    });
-    setSubmitting(false);
-    if (error) {
-      setSubmitError(error);
+    try {
+      const { error } = await insertFact({
+        topic: topic.trim(),
+        summary: summary.trim(),
+        key_points: splitLines(keyPointsText),
+        sources: splitLines(sourcesText),
+      });
+      if (error) {
+        setSubmitError(error);
+        return;
+      }
+    } catch {
+      setSubmitError("Saving failed unexpectedly. Try again.");
       return;
+    } finally {
+      setSubmitting(false);
     }
     setTopic("");
     setSummary("");
@@ -239,6 +251,12 @@ export function FactsPanel() {
         <p className="facts__notice">
           Showing labelled demo data — add Supabase credentials to{" "}
           <code>.env</code> to connect the live fact store.
+        </p>
+      )}
+
+      {authError && (
+        <p className="facts__error" role="alert">
+          {authError}
         </p>
       )}
 

@@ -356,9 +356,9 @@ describe("FactsPanel — live mode, signed in", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
   });
 
-  it("clears the refresh spinner when a realtime refetch supersedes a manual refresh", async () => {
+  it("clears the refresh spinner when the latest request settles, even if a manual refresh is still pending", async () => {
     vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
-    // Second call (manual refresh) stays pending; third call (realtime) resolves.
+    // Manual refresh stays pending; the realtime refetch resolves first.
     let resolveManual: (value: unknown) => void = () => {};
     const manualFetch = new Promise((resolve) => {
       resolveManual = resolve;
@@ -385,21 +385,75 @@ describe("FactsPanel — live mode, signed in", () => {
     });
     expect(refreshBtn.hasAttribute("disabled")).toBe(true); // spinner active
 
-    // A realtime event fires a refetch that supersedes the manual one.
+    // A realtime event fires a refetch that settles while the manual one is
+    // still pending — the spinner must clear (latest request settled).
     await act(async () => {
       subscribeCallback?.();
     });
+    await waitFor(() => {
+      expect(refreshBtn.hasAttribute("disabled")).toBe(false);
+    });
 
-    // The superseded manual request finally settles — the spinner must clear
-    // and the panel must stay functional (facts from the newer request).
+    // The superseded manual request finally settles — its result is ignored.
     await act(async () => {
       resolveManual({ facts: [], mode: "live", error: null });
       await manualFetch;
     });
+    expect(screen.getByText("PrimordiaOS Task Claiming")).toBeDefined();
+    expect(refreshBtn.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("recovers when the initial session check rejects", async () => {
+    vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
+    mockFactsModule({
+      getFactSession: vi.fn().mockRejectedValue(new Error("auth api down")),
+    });
+
+    const { FactsPanel } = await import("./FactsPanel");
+    await act(async () => {
+      render(<FactsPanel />);
+    });
+
+    // Must not stick on "Checking session…" — it falls back to signed-out.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+    });
+    expect(screen.queryByText("Checking session…")).toBeNull();
+  });
+
+  it("surfaces a rejected insert instead of sticking on Saving…", async () => {
+    vi.doMock("../lib/supabase", () => ({ databaseMode: "live" }));
+    mockFactsModule({
+      insertFact: vi.fn().mockRejectedValue(new Error("network down")),
+    });
+
+    const { FactsPanel } = await import("./FactsPanel");
+    await act(async () => {
+      render(<FactsPanel />);
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Add fact")).toBeDefined();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Add fact"));
+    });
+    fireEvent.change(screen.getByLabelText("Topic *"), {
+      target: { value: "New Topic" },
+    });
+    fireEvent.change(screen.getByLabelText("Summary *"), {
+      target: { value: "A fresh fact." },
+    });
+    await act(async () => {
+      fireEvent.submit(
+        document.querySelector("form.facts__form") as HTMLFormElement,
+      );
+    });
 
     await waitFor(() => {
-      expect(refreshBtn.hasAttribute("disabled")).toBe(false);
+      expect(screen.getByText("Saving failed unexpectedly. Try again.")).toBeDefined();
     });
-    expect(screen.getByText("PrimordiaOS Task Claiming")).toBeDefined();
+    // The form stays open and the button is re-enabled.
+    expect(screen.getByRole("button", { name: "Save fact" }).hasAttribute("disabled")).toBe(false);
   });
 });
