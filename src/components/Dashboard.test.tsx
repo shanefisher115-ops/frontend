@@ -22,6 +22,18 @@ vi.mock("../lib/database", () => ({
   subscribeToSignals: vi.fn().mockReturnValue(() => {}),
 }));
 
+/**
+ * The dashboard opens on the whiteboard tab; most assertions target the
+ * Database Console, so switch tabs after rendering.
+ */
+async function openDatabaseConsole() {
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: /Database Console/i }),
+    );
+  });
+}
+
 describe("DatabaseStatusBadge Accessibility", () => {
   it("renders with role status and accessible label", () => {
     render(<DatabaseStatusBadge />);
@@ -42,6 +54,7 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     await act(async () => {
       render(<Dashboard />);
     });
+    await openDatabaseConsole();
 
     const skipLink = screen.getByText("Skip to main content");
     expect(skipLink).toBeDefined();
@@ -59,6 +72,7 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     await act(async () => {
       render(<Dashboard />);
     });
+    await openDatabaseConsole();
 
     await waitFor(() => {
       expect(screen.getByRole("table", { name: "Database Signals" })).toBeDefined();
@@ -77,6 +91,7 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     await act(async () => {
       render(<Dashboard />);
     });
+    await openDatabaseConsole();
 
     await waitFor(() => {
       expect(screen.getByText("Alpha Signal")).toBeDefined();
@@ -106,6 +121,7 @@ describe("Dashboard Accessibility & Keyboard Shortcuts", () => {
     await act(async () => {
       render(<Dashboard />);
     });
+    await openDatabaseConsole();
 
     await waitFor(() => {
       expect(screen.getByText("Alpha Signal")).toBeDefined();
@@ -133,6 +149,7 @@ describe("Dashboard Data Fetching & Lifecycle", () => {
 
   it("loads and displays signals on mount", async () => {
     render(<Dashboard />);
+    await openDatabaseConsole();
 
     // Check loading state gone
     await waitFor(() => {
@@ -151,6 +168,7 @@ describe("Dashboard Data Fetching & Lifecycle", () => {
     const { fetchSignals } = await import("../lib/database");
 
     render(<Dashboard />);
+    await openDatabaseConsole();
 
     await waitFor(() => {
       expect(screen.getByText("Alpha Signal")).toBeDefined();
@@ -181,8 +199,6 @@ describe("Dashboard Data Fetching & Lifecycle", () => {
 
 
 describe("Dashboard Error Handling", () => {
-  let originalMode;
-
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -200,6 +216,7 @@ describe("Dashboard Error Handling", () => {
 
     vi.doMock("../lib/supabase", () => ({
       databaseMode: "live",
+      supabase: null,
       envDiagnostics: {
         url: { configured: true, masked: "***" },
         key: { configured: true, masked: "***" }
@@ -209,6 +226,7 @@ describe("Dashboard Error Handling", () => {
     const { Dashboard } = await import("./Dashboard");
 
     render(<Dashboard />);
+    await openDatabaseConsole();
 
     await waitFor(() => {
       expect(screen.getByText("Live query failed due to network error")).toBeDefined();

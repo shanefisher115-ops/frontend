@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
+import { FactsPanel } from "./FactsPanel";
 import { WhiteboardCanvas } from "./whiteboard/WhiteboardCanvas";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
@@ -13,12 +14,10 @@ const STATUS_LABEL: Record<SignalStatus, string> = {
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState<"whiteboard" | "database">("whiteboard");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
-  const [announcement, setAnnouncement] = useState("");
 
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -31,7 +30,6 @@ export function Dashboard() {
       setLastUpdated(now);
       if (manual) {
         setIsRefreshing(false);
-        setAnnouncement(`Signals data refreshed at ${now.toLocaleTimeString()}`);
       }
     });
   }, []);
@@ -51,7 +49,6 @@ export function Dashboard() {
           : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
     }
 
-    setAnnouncement(`Theme changed to ${nextTheme} mode`);
   }, []);
 
   const handleRefreshClick = () => {
@@ -61,6 +58,36 @@ export function Dashboard() {
   const toggleShortcutsModal = useCallback(() => {
     setShowShortcutsModal((prev) => !prev);
   }, []);
+
+  // Global keyboard shortcuts (as advertised in the shortcuts modal):
+  // R refresh, T theme, ?/H shortcuts help, Esc closes the dialog.
+  // Skipped while typing in form controls.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowShortcutsModal(false);
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+      if (isTyping) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "r") {
+        load(true);
+      } else if (key === "t") {
+        toggleTheme();
+      } else if (e.key === "?" || key === "h") {
+        toggleShortcutsModal();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [load, toggleTheme, toggleShortcutsModal]);
 
   useEffect(() => {
     load();
@@ -72,17 +99,14 @@ export function Dashboard() {
     };
   }, [load]);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    document.documentElement.setAttribute("data-theme", nextTheme);
-  };
-
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
 
   return (
     <div className={`console ${activeTab === "whiteboard" ? "console--full" : ""}`}>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <header className="console__header">
         <div className="console__brand">
           <span className="console__logo" aria-hidden="true">
@@ -162,8 +186,8 @@ export function Dashboard() {
             className="theme-toggle"
             data-theme-toggle
             onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            aria-label="Toggle dark / light theme"
+            title="Toggle dark / light theme"
           >
             <svg
               width="18"
@@ -203,11 +227,11 @@ export function Dashboard() {
       </header>
 
       {activeTab === "whiteboard" ? (
-        <main>
+        <main id="main-content">
           <WhiteboardCanvas />
         </main>
       ) : (
-        <main className="console__main">
+        <main id="main-content" className="console__main">
           <section className="card connection-card">
             <div className="connection-card__head">
               <h2 className="card__title">Connection</h2>
@@ -262,7 +286,7 @@ export function Dashboard() {
               <p className="muted">Loading…</p>
             ) : (
               <div className="table-wrap">
-                <table>
+                <table aria-label="Database Signals">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -281,53 +305,10 @@ export function Dashboard() {
               </div>
             )}
           </section>
+
+          <FactsPanel />
         </main>
       )}
-
-        <section className="card" aria-labelledby="signals-heading">
-          <div className="signals__head">
-            <h2 id="signals-heading" className="card__title">Signals</h2>
-            <span className="signals__source">
-              {databaseMode === "live" && (
-                <span className="live-pulse" aria-hidden="true" />
-              )}
-              {result?.isMock ? "source: mock dataset" : "source: supabase"}
-              {lastUpdated && (
-                <span className="signals__updated">
-                  · updated{" "}
-                  <time dateTime={lastUpdated.toISOString()}>
-                    {timeAgo(lastUpdated)}
-                  </time>
-                </span>
-              )}
-            </span>
-          </div>
-          {loading ? (
-            <p className="muted" role="status" aria-live="polite">
-              Loading signals data…
-            </p>
-          ) : (
-            <div className="table-wrap">
-              <table aria-label="Database Signals">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Origin</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" className="num">Intensity</th>
-                    <th scope="col">Recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result?.signals.map((s) => (
-                    <SignalRow key={s.id} signal={s} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </main>
 
       <footer className="console__footer" role="contentinfo">
         <p>
