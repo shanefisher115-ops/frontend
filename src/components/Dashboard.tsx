@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { DatabaseStatusBadge } from "./DatabaseStatusBadge";
-import { FactsPanel } from "./FactsPanel";
-import { WhiteboardCanvas } from "./whiteboard/WhiteboardCanvas";
+import { Viewport3D } from "./Viewport3D";
 import { fetchSignals, subscribeToSignals, type FetchResult } from "../lib/database";
 import { envDiagnostics, databaseMode } from "../lib/supabase";
 import type { Signal, SignalStatus } from "../types/signal";
@@ -16,8 +15,8 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<"whiteboard" | "database">("whiteboard");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"viewport" | "table">("viewport");
 
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +100,10 @@ export function Dashboard() {
 
   const loading = result === null;
   const showError = result?.error && result.isMock && databaseMode === "live";
+
+  const handleSelectSignal = (signal: Signal | null) => {
+    setSelectedSignalId(signal ? signal.id : null);
+  };
 
   return (
     <div className={`console ${activeTab === "whiteboard" ? "console--full" : ""}`}>
@@ -260,26 +263,37 @@ export function Dashboard() {
             </dl>
           </section>
 
-          {showError && (
-            <div className="card alert-card" role="alert">
-              <strong>Live query failed — serving mock data.</strong>
-              <p>{result?.error}</p>
+      {/* 3D Viewport Card */}
+      <section className="card viewport-card">
+        <div className="signals__head">
+          <div className="viewport-tab-group">
+            <h2 className="card__title">3D Viewport Canvas</h2>
+            <div className="tab-buttons">
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "viewport" ? "tab-btn--active" : ""}`}
+                onClick={() => setActiveTab("viewport")}
+              >
+                3D Spatial Canvas
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "table" ? "tab-btn--active" : ""}`}
+                onClick={() => setActiveTab("table")}
+              >
+                Data Grid
+              </button>
             </div>
-          )}
+          </div>
 
-          <section className="card">
-            <div className="signals__head">
-              <h2 className="card__title">Signals</h2>
-              <span className="signals__source">
-                {databaseMode === "live" && (
-                  <span className="live-pulse" aria-hidden="true" />
-                )}
-                {result?.isMock ? "source: mock dataset" : "source: supabase"}
-                {lastUpdated && (
-                  <span className="signals__updated">
-                    · updated {timeAgo(lastUpdated)}
-                  </span>
-                )}
+          <span className="signals__source">
+            {databaseMode === "live" && (
+              <span className="live-pulse" aria-hidden="true" />
+            )}
+            {result?.isMock ? "source: mock dataset" : "source: supabase"}
+            {lastUpdated && (
+              <span className="signals__updated">
+                · updated {timeAgo(lastUpdated)}
               </span>
             </div>
             {loading ? (
@@ -304,11 +318,88 @@ export function Dashboard() {
                 </table>
               </div>
             )}
-          </section>
+          </span>
+        </div>
 
-          <FactsPanel />
-        </main>
-      )}
+        {loading ? (
+          <p className="muted">Loading viewport data…</p>
+        ) : (
+          <div>
+            {activeTab === "viewport" && (
+              <div className="viewport-wrapper">
+                <Viewport3D
+                  signals={result?.signals || []}
+                  selectedSignalId={selectedSignalId}
+                  onSelectSignal={handleSelectSignal}
+                />
+              </div>
+            )}
+
+            {activeTab === "table" && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Origin</th>
+                      <th>Status</th>
+                      <th className="num">Intensity</th>
+                      <th>Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result?.signals.map((s) => (
+                      <SignalRow
+                        key={s.id}
+                        signal={s}
+                        isSelected={s.id === selectedSignalId}
+                        onSelect={() => handleSelectSignal(s)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Signals Data Table Section */}
+      <section className="card">
+        <div className="signals__head">
+          <h2 className="card__title">Signals Stream</h2>
+          <span className="signals__source">
+            {result?.signals.length || 0} active signals
+          </span>
+        </div>
+        {loading ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Origin</th>
+                  <th>Status</th>
+                  <th className="num">Intensity</th>
+                  <th>Recorded</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result?.signals.map((s) => (
+                  <SignalRow
+                    key={s.id}
+                    signal={s}
+                    isSelected={s.id === selectedSignalId}
+                    onSelect={() => handleSelectSignal(s)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <footer className="console__footer" role="contentinfo">
         <p>
@@ -408,13 +499,24 @@ function DiagRow({
   );
 }
 
-function SignalRow({ signal }: { signal: Signal }) {
-  const recorded = useMemo(() => new Date(signal.recorded_at), [signal.recorded_at]);
-  const boundedIntensity = Math.max(0, Math.min(100, signal.intensity));
-
+function SignalRow({
+  signal,
+  isSelected,
+  onSelect,
+}: {
+  signal: Signal;
+  isSelected?: boolean;
+  onSelect?: () => void;
+}) {
+  const recorded = new Date(signal.recorded_at);
   return (
-    <tr>
-      <td className="signal-name" scope="row">
+    <tr
+      className={isSelected ? "table-row--selected" : ""}
+      onClick={onSelect}
+      style={{ cursor: "pointer" }}
+    >
+      <td className="signal-name">
+        {isSelected && <span className="selection-indicator">● </span>}
         {signal.name}
       </td>
       <td className="muted">{signal.origin}</td>
