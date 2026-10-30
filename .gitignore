@@ -1,32 +1,22 @@
-# Dependencies
 node_modules/
-.pnp/
-.pnp.js
-
-# Build output
 dist/
-dist-ssr/
-*.local
-
-# Env (live credentials stay local — never commit)
 .env
-.env.local
-.env.*.local
+test_speech.wav
+__pycache__/
+*.pyc
+.vite/
+.vscode/
+*.log
 
-# Editor / OS
-.vscode/*
-!.vscode/extensions.json
-.idea/
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.vs/
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-dist-demo/
+Binaries/
+Intermediate/
+Saved/
+Build/
+Builds/
+ArchivedBuilds/
+PluginBackups/
+ThirdParty/
+dist-electron/
+.vs/
